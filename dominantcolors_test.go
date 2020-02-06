@@ -1,14 +1,18 @@
 package main
 
 import (
+	"encoding/csv"
 	"image"
 	"image/color"
+	"io"
+	"log"
+	"os"
 	"testing"
 )
 
 //Using testing colors that shouldn't be broken by conversion
 var dominantColors = map[string]color.RGBA{
-	"yellow": color.RGBA{203, 204, 102, 0xff},
+	"yellow": color.RGBA{203, 204, 102, 0xff}, //#CBCC66
 	"blue":   color.RGBA{51, 204, 255, 0xff},
 	"red":    color.RGBA{200, 63, 105, 0xff},
 }
@@ -34,23 +38,55 @@ var secondaryColors = map[string]color.RGBA{
 	rgbImage := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 	draw.Draw(rgbImage, rgbImage.Bounds(), imageData, b.Min, draw.Src)
 */
-
 func TestJpegColorOutput(t *testing.T) {
-
 	filename := "./testData/test.jpg"
 	colorA, colorB, colorC := DominantColorsFromJpeg(filename)
 	colors := []color.Color{colorA, colorB, colorC}
 	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
 
-	r, g, b, _ := colors[0].RGBA()
-	//ra, ga, ba := color.YCbCrToRGB(uint8(r/0x101), uint8(g/0x101), uint8(b/0x101))
-	t.Logf("%d, %d, %d", r, g, b)
-	t.Logf("%d, %d, %d", r/0x101, g/0x101, b/0x101)
-
 	for i := 0; i < len(expectedColors); i++ {
 		if colors[i] != expectedColors[i] {
 			t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
 		}
+	}
+
+}
+
+func TestColorToHex(t *testing.T) {
+	expected := "#CBCC66"
+	actual := ColorToRGBHexString(dominantColors["yellow"])
+	if actual != expected {
+		t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", actual, expected)
+	}
+}
+
+var csvFilename string = "output.csv"
+
+func TestTestImageEndToEnd(t *testing.T) {
+	testURLFilename := "./testData/testUrlList.txt"
+	DominantColorsFromURLToCSV(testURLFilename, csvFilename)
+
+	csvFile, err := os.Open(csvFilename)
+	if err != nil {
+		log.Fatalln("Couldn't open the csv file", err)
+	}
+	reader := csv.NewReader(csvFile)
+	expectedResult := []string{"https://i.imgur.com/19cQ2Ka.jpg", "#CBCC66", "#33CCFF", "#C83F69"}
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for i := 0; i < len(expectedResult); i++ {
+			if record[i] != expectedResult[i] {
+				t.Errorf("CSV output is wrong, actual: %v, expected: %v.", record[i], expectedResult[i])
+			}
+		}
+		os.Remove(csvFilename)
 	}
 }
 

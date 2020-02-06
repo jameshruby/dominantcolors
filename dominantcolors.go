@@ -1,13 +1,82 @@
 package main
 
 import (
+	"bufio"
+	"encoding/csv"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
+	"io"
+	"log"
+	"net/http"
 	"os"
+	"path"
 	"sort"
 )
+
+func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
+	//open the file
+	file, err := os.Open(urlListFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	//create CSV file
+	outputCSV, err := os.Create(csvFilename)
+	if err != nil {
+		log.Fatalf("failed creating file: %s", err)
+	}
+	writerCSV := csv.NewWriter(outputCSV)
+
+	for scanner.Scan() {
+		url := scanner.Text()
+		filename := DownloadImage(url)
+		colorA, colorB, colorC := DominantColorsFromJpeg(filename)
+		os.Remove(filename)
+		err = writerCSV.Write([]string{url, ColorToRGBHexString(colorA), ColorToRGBHexString(colorB), ColorToRGBHexString(colorC)})
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+	writerCSV.Flush()
+	outputCSV.Close()
+}
+
+func ColorToRGBHexString(color color.Color) string {
+	r, g, b, _ := color.RGBA()
+	ra, ga, ba := uint8(r/0x101), uint8(g/0x101), uint8(b/0x101)
+	return fmt.Sprintf("#%X%X%X", ra, ga, ba)
+}
+
+func DownloadImage(url string) string {
+	response, e := http.Get(url)
+	if e != nil {
+		log.Fatal(e)
+	}
+	defer response.Body.Close()
+	// TODO use path.Base and delete the image when we are done
+	//open a file for writing
+	filename := path.Base(url)
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, response.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// fmt.Println("image downloaded")
+	return filename
+}
 
 func DominantColorsFromJpeg(imagefilename string) (color.Color, color.Color, color.Color) {
 	image.RegisterFormat("jpg", "jpeg", jpeg.Decode, jpeg.DecodeConfig)
