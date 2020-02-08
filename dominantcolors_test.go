@@ -40,7 +40,10 @@ var secondaryColors = map[string]color.RGBA{
 */
 func TestJpegColorOutput(t *testing.T) {
 	filename := "./testData/test.jpg"
-	colorA, colorB, colorC := DominantColorsFromJpeg(filename)
+
+	image, imageConfig := GetImageFromJpeg(filename)
+	colorA, colorB, colorC := DominantColors(image, imageConfig.Width, imageConfig.Height)
+
 	colors := []color.Color{colorA, colorB, colorC}
 	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
 

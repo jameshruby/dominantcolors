@@ -38,7 +38,8 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 	for scanner.Scan() {
 		url := scanner.Text()
 		filename := DownloadImage(url)
-		colorA, colorB, colorC := DominantColorsFromJpeg(filename)
+		image, imageConfig := GetImageFromJpeg(filename)
+		colorA, colorB, colorC := DominantColors(image, imageConfig.Width, imageConfig.Height)
 		os.Remove(filename)
 		err = writerCSV.Write([]string{url, ColorToRGBHexString(colorA), ColorToRGBHexString(colorB), ColorToRGBHexString(colorC)})
 		if err != nil {
@@ -78,7 +79,7 @@ func DownloadImage(url string) string {
 	return filename
 }
 
-func DominantColorsFromJpeg(imagefilename string) (color.Color, color.Color, color.Color) {
+func GetImageFromJpeg(imagefilename string) (image.Image, image.Config) {
 	image.RegisterFormat("jpg", "jpeg", jpeg.Decode, jpeg.DecodeConfig)
 	testImage, err := os.Open(imagefilename)
 	if err != nil {
@@ -98,7 +99,7 @@ func DominantColorsFromJpeg(imagefilename string) (color.Color, color.Color, col
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	return DominantColors(imageData, imageConfig.Width, imageConfig.Height)
+	return imageData, imageConfig
 }
 
 func DominantColors(image image.Image, width int, height int) (color.Color, color.Color, color.Color) {
