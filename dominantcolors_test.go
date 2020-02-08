@@ -41,8 +41,8 @@ var secondaryColors = map[string]color.RGBA{
 func TestJpegColorOutput(t *testing.T) {
 	filename := "./testData/test.jpg"
 
-	image, imageConfig := GetImageFromJpeg(filename)
-	colorA, colorB, colorC := DominantColors(image, imageConfig.Width, imageConfig.Height)
+	image, imageConfig, _ := GetImageFromJpeg(filename)
+	colorA, colorB, colorC, _ := DominantColors(image, imageConfig.Width, imageConfig.Height)
 
 	colors := []color.Color{colorA, colorB, colorC}
 	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
@@ -52,7 +52,6 @@ func TestJpegColorOutput(t *testing.T) {
 			t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
 		}
 	}
-
 }
 
 func TestColorToHex(t *testing.T) {
@@ -81,7 +80,7 @@ func TestTestImageEndToEnd(t *testing.T) {
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			t.Errorf("failed to read output file %v", err)
 		}
 
 		for i := 0; i < len(expectedResult); i++ {
@@ -120,7 +119,7 @@ func TestCorrectColorOutput(t *testing.T) {
 	imgWidth := 12
 	imgHeight := 12
 	testImage := generateTestImage(imgWidth, imgHeight)
-	colorA, colorB, colorC := DominantColors(testImage, imgWidth, imgHeight)
+	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
 	colors := []color.Color{colorA, colorB, colorC}
 	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
 
@@ -136,7 +135,10 @@ func TestNullPicture(t *testing.T) {
 	imgHeight := 0
 	testImage := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 
-	colorA, colorB, colorC := DominantColors(testImage, imgWidth, imgHeight)
+	colorA, colorB, colorC, err := DominantColors(testImage, imgWidth, imgHeight)
+	if err == nil {
+		t.Errorf("Dominant colors aren't returning error")
+	}
 	colors := []color.Color{colorA, colorB, colorC}
 	expectedColors := []color.Color{nil, nil, nil}
 
@@ -158,7 +160,7 @@ func TestSolidPictureShouldReturnSameColor(t *testing.T) {
 		}
 	}
 
-	colorA, colorB, colorC := DominantColors(testImage, imgWidth, imgHeight)
+	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
 	colors := []color.Color{colorA, colorB, colorC}
 	expectedColors := []color.Color{dominantColors["orange"], dominantColors["orange"], dominantColors["orange"]}
 

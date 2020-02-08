@@ -3,12 +3,12 @@ package main
 import (
 	"bufio"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -16,42 +16,52 @@ import (
 )
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
-	linksScanner := OpenTheList(urlListFile)
+	linksScanner, err := OpenTheList(urlListFile)
+	HandleError(err, "couldn't open the links list")
 	//create CSV file
 	outputCSV, err := os.Create(csvFilename)
-	if err != nil {
-		log.Fatalf("failed creating file: %s", err)
-	}
+	HandleError(err, "failed creating CSV file")
 	writerCSV := csv.NewWriter(outputCSV)
 
 	for linksScanner.Scan() {
 		url := linksScanner.Text()
-		filename := DownloadImage(url)
-		image, imageConfig := GetImageFromJpeg(filename)
-		colorA, colorB, colorC := DominantColors(image, imageConfig.Width, imageConfig.Height)
+		filename, err := DownloadImage(url)
+		HandleError(err, "failed to download the file")
+
+		image, imageConfig, err := GetImageFromJpeg(filename)
+		HandleError(err, "failed to process image")
+		colorA, colorB, colorC, err := DominantColors(image, imageConfig.Width, imageConfig.Height)
+		HandleError(err, "")
+
 		os.Remove(filename)
 		err = writerCSV.Write([]string{url, ColorToRGBHexString(colorA), ColorToRGBHexString(colorB), ColorToRGBHexString(colorC)})
-		if err != nil {
-			fmt.Println(err)
-		}
+		HandleError(err, "CSV writer failed")
 	}
 	writerCSV.Flush()
 	outputCSV.Close()
+	HandleError(err, "failed to close CSV file")
 }
 
-func OpenTheList(urlListFile string) *bufio.Scanner {
+func HandleError(err error, extendedMessage string) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v: %v\n", extendedMessage, err)
+		os.Exit(1)
+	}
+}
+
+func OpenTheList(urlListFile string) (*bufio.Scanner, error) {
 	//open the file
 	file, err := os.Open(urlListFile)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+	if scanner.Err() != nil {
+		return nil, err
 	}
-	return scanner
+	return scanner, nil
 }
 
 func ColorToRGBHexString(color color.Color) string {
@@ -60,10 +70,10 @@ func ColorToRGBHexString(color color.Color) string {
 	return fmt.Sprintf("#%X%X%X", ra, ga, ba)
 }
 
-func DownloadImage(url string) string {
-	response, e := http.Get(url)
-	if e != nil {
-		log.Fatal(e)
+func DownloadImage(url string) (string, error) {
+	response, err := http.Get(url)
+	if err != nil {
+		return "", err
 	}
 	defer response.Body.Close()
 	// TODO use path.Base and delete the image when we are done
@@ -71,45 +81,44 @@ func DownloadImage(url string) string {
 	filename := path.Base(url)
 	file, err := os.Create(filename)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	defer file.Close()
 
 	_, err = io.Copy(file, response.Body)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	// fmt.Println("image downloaded")
-	return filename
+	return filename, nil
 }
 
-func GetImageFromJpeg(imagefilename string) (image.Image, image.Config) {
+func GetImageFromJpeg(imagefilename string) (image.Image, image.Config, error) {
 	image.RegisterFormat("jpg", "jpeg", jpeg.Decode, jpeg.DecodeConfig)
+	var imageConfig image.Config
+	var imageData image.Image
 	testImage, err := os.Open(imagefilename)
 	if err != nil {
-		fmt.Println("Error: File could not be opened")
-		os.Exit(1)
+		return imageData, imageConfig, err
 	}
 	defer testImage.Close()
 
-	imageConfig, _, err := image.DecodeConfig(testImage)
+	imageConfig, _, err = image.DecodeConfig(testImage)
 	if err != nil {
-		fmt.Println("Error: Image config failed")
-		os.Exit(1)
+		return imageData, imageConfig, fmt.Errorf("Error: Image config failed %v", err)
 	}
 	testImage.Seek(0, 0)
-	imageData, _, err := image.Decode(testImage)
+	imageData, _, err = image.Decode(testImage)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return imageData, imageConfig, err
 	}
-	return imageData, imageConfig
+	return imageData, imageConfig, nil
 }
 
-func DominantColors(image image.Image, width int, height int) (color.Color, color.Color, color.Color) {
+func DominantColors(image image.Image, width int, height int) (color.Color, color.Color, color.Color, error) {
 	if width == 0 || height == 0 {
-		fmt.Println("Warning: Image size was 0")
-		return nil, nil, nil
+		var nilColor color.Color
+		return nilColor, nilColor, nilColor, errors.New("image size was 0")
 	}
 	//build a map of unique colors and its sum
 	uniqueColors := make(map[color.Color]int)
@@ -137,10 +146,10 @@ func DominantColors(image image.Image, width int, height int) (color.Color, colo
 	listLen := len(colorCounterList)
 	switch {
 	case listLen < 2:
-		return colorCounterList[0].Key, colorCounterList[0].Key, colorCounterList[0].Key
+		return colorCounterList[0].Key, colorCounterList[0].Key, colorCounterList[0].Key, nil
 	case listLen < 3:
-		return colorCounterList[0].Key, colorCounterList[1].Key, colorCounterList[1].Key
+		return colorCounterList[0].Key, colorCounterList[1].Key, colorCounterList[1].Key, nil
 	default:
-		return colorCounterList[0].Key, colorCounterList[1].Key, colorCounterList[2].Key
+		return colorCounterList[0].Key, colorCounterList[1].Key, colorCounterList[2].Key, nil
 	}
 }
