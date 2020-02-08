@@ -16,18 +16,7 @@ import (
 )
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
-	//open the file
-	file, err := os.Open(urlListFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
-
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
-
+	linksScanner := OpenTheList(urlListFile)
 	//create CSV file
 	outputCSV, err := os.Create(csvFilename)
 	if err != nil {
@@ -35,8 +24,8 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 	}
 	writerCSV := csv.NewWriter(outputCSV)
 
-	for scanner.Scan() {
-		url := scanner.Text()
+	for linksScanner.Scan() {
+		url := linksScanner.Text()
 		filename := DownloadImage(url)
 		image, imageConfig := GetImageFromJpeg(filename)
 		colorA, colorB, colorC := DominantColors(image, imageConfig.Width, imageConfig.Height)
@@ -48,6 +37,21 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 	}
 	writerCSV.Flush()
 	outputCSV.Close()
+}
+
+func OpenTheList(urlListFile string) *bufio.Scanner {
+	//open the file
+	file, err := os.Open(urlListFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return scanner
 }
 
 func ColorToRGBHexString(color color.Color) string {
