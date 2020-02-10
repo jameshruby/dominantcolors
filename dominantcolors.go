@@ -16,8 +16,9 @@ import (
 )
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
-	linksScanner, err := OpenTheList(urlListFile)
+	linksScanner, fileHandle, err := OpenTheList(urlListFile)
 	HandleError(err, "couldn't open the links list")
+	defer fileHandle.Close()
 	//create CSV file
 	outputCSV, err := os.Create(csvFilename)
 	HandleError(err, "failed creating CSV file")
@@ -49,19 +50,17 @@ func HandleError(err error, extendedMessage string) {
 	}
 }
 
-func OpenTheList(urlListFile string) (*bufio.Scanner, error) {
-	//open the file
+func OpenTheList(urlListFile string) (*bufio.Scanner, io.Closer, error) {
 	file, err := os.Open(urlListFile)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	defer file.Close()
 	scanner := bufio.NewScanner(file)
-
-	if scanner.Err() != nil {
-		return nil, err
+	if err := scanner.Err(); err != nil {
+		return nil, nil, err
 	}
-	return scanner, nil
+	//we need to return file handle, since we need to close it afterwards
+	return scanner, file, nil
 }
 
 func ColorToRGBHexString(color color.Color) string {
