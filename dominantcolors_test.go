@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"testing"
 )
@@ -18,6 +19,8 @@ var dominantColors = map[string]color.RGBA{
 }
 var secondaryColors = map[string]color.RGBA{
 	"green": color.RGBA{87, 198, 43, 0xff},
+	"black": color.RGBA{0, 0, 0, 0xff},
+	"white": color.RGBA{255, 255, 255, 0xff},
 }
 
 /*
@@ -94,24 +97,38 @@ func TestTestImageEndToEnd(t *testing.T) {
 	os.Remove(csvFilename)
 }
 
-func generateTestImage(width int, height int) image.Image {
+func generateTestImage(width int, height int, random bool) image.Image {
 	testImage := image.NewRGBA(image.Rect(0, 0, width, height))
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
+	var getColor func(x int, y int) color.RGBA
+	if random {
+		getColor = func(x int, y int) color.RGBA {
+			return color.RGBA{uint8(rand.Intn(255)), uint8(rand.Intn(255)), uint8(rand.Intn(255)), 0xff}
+		}
+	} else {
+		getColor = func(x int, y int) color.RGBA {
+			var c color.RGBA
 			switch {
 			case x < 3:
-				testImage.Set(x, y, dominantColors["blue"])
+				c = dominantColors["blue"]
 			case x == 3:
-				testImage.Set(x, y, color.Black)
+				c = secondaryColors["black"]
 			case x >= 4 && x < 8:
-				testImage.Set(x, y, dominantColors["yellow"])
+				c = dominantColors["yellow"]
 			case x == 8:
-				testImage.Set(x, y, color.White)
+				c = secondaryColors["white"]
 			case x >= 9 && x < 11:
-				testImage.Set(x, y, dominantColors["red"])
+				c = dominantColors["red"]
 			case x == 11:
-				testImage.Set(x, y, secondaryColors["green"])
+				c = secondaryColors["green"]
 			}
+			return c
+		}
+	}
+
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+
+			testImage.Set(x, y, getColor(x, y))
 		}
 	}
 	return testImage
@@ -120,7 +137,7 @@ func generateTestImage(width int, height int) image.Image {
 func TestCorrectColorOutput(t *testing.T) {
 	imgWidth := 12
 	imgHeight := 12
-	testImage := generateTestImage(imgWidth, imgHeight)
+	testImage := generateTestImage(imgWidth, imgHeight, false)
 	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
 	colors := []color.Color{colorA, colorB, colorC}
 	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
@@ -129,6 +146,16 @@ func TestCorrectColorOutput(t *testing.T) {
 		if colors[i] != expectedColors[i] {
 			t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
 		}
+	}
+}
+
+func BenchmarkDominantColorsMediumImg(b *testing.B) {
+	imgWidth := 1000
+	imgHeight := 1000
+	testImage := generateTestImage(imgWidth, imgHeight, true)
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		DominantColors(testImage, imgWidth, imgHeight) //we don't care about actual output
 	}
 }
 
