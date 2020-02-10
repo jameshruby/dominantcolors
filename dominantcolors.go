@@ -35,6 +35,7 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 		HandleError(err, "")
 
 		os.Remove(filename)
+		HandleError(err, "")
 		err = writerCSV.Write([]string{url, ColorToRGBHexString(colorA), ColorToRGBHexString(colorB), ColorToRGBHexString(colorC)})
 		HandleError(err, "CSV writer failed")
 	}
@@ -75,8 +76,7 @@ func DownloadImage(url string) (string, error) {
 		return "", err
 	}
 	defer response.Body.Close()
-	// TODO use path.Base and delete the image when we are done
-	//open a file for writing
+
 	filename := path.Base(url)
 	file, err := os.Create(filename)
 	if err != nil {

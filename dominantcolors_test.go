@@ -72,6 +72,7 @@ func TestTestImageEndToEnd(t *testing.T) {
 	if err != nil {
 		log.Fatalln("Couldn't open the csv file", err)
 	}
+
 	reader := csv.NewReader(csvFile)
 	expectedResult := []string{"https://i.imgur.com/19cQ2Ka.jpg", "#CBCC66", "#33CCFF", "#C83F69"}
 	for {
@@ -88,8 +89,9 @@ func TestTestImageEndToEnd(t *testing.T) {
 				t.Errorf("CSV output is wrong, actual: %v, expected: %v.", record[i], expectedResult[i])
 			}
 		}
-		os.Remove(csvFilename)
 	}
+	csvFile.Close()
+	os.Remove(csvFilename)
 }
 
 func generateTestImage(width int, height int) image.Image {
