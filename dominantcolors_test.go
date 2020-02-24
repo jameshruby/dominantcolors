@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -267,6 +268,23 @@ func TestSolidPictureShouldReturnSameColor(t *testing.T) {
 			t.Errorf("Dominant color is wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
 		}
 	}
+}
+
+func TestImgTypeSwichingWithEvilPostfix(t *testing.T) {
+	filename := "./testData/lena100x100.jpg"
+	input, err := ioutil.ReadFile("./testData/lena100x100.png")
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	err = ioutil.WriteFile(filename, input, 0644)
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	_, _, err = GetImageFromJpeg(filename)
+	if err != nil {
+		t.Errorf("Failed to open the image: %v", err)
+	}
+	os.Remove(filename)
 }
 
 func BenchmarkDominantColors(b *testing.B) {
