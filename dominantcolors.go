@@ -126,12 +126,9 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 	//build a map of unique colors and its sum, pix is array with colors just stacked behind each other
 	imgPix := image.Pix
 	uniqueColors := make(map[[rgbLen]byte]int)
-
 	var aCount, bCount, cCount int
-
-	pixLen := len(imgPix)
 	const rgbaLen = 4
-	for i := 0; i < pixLen; i += rgbaLen {
+	for i := 0; i < len(imgPix); i += rgbaLen {
 		var pixel [rgbLen]byte
 		copy(pixel[:], imgPix[i:i+rgbLen:i+rgbLen]) //getting RGBA [125][126][243][255] [100][2][56][255]
 		colorOccurences := uniqueColors[pixel] + 1
