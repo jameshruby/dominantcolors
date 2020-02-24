@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"sort"
 )
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
@@ -121,41 +120,46 @@ func GetImageFromJpeg(imagefilename string) (*image.RGBA, image.Config, error) {
 }
 
 func DominantColors(image *image.RGBA, width int, height int) (color.Color, color.Color, color.Color, error) {
+	var nilColor color.Color
 	if width == 0 || height == 0 {
-		var nilColor color.Color
 		return nilColor, nilColor, nilColor, errors.New("image size was 0")
 	}
 	//build a map of unique colors and its sum, pix is array with colors just stacked behind each other
 	imgPix := image.Pix
-	uniqueColors := make(map[color.Color]int)
-	for i := 0; i < len(imgPix); i += 4 {
-		pixel := imgPix[i : i+4 : i+4] //getting RGBA [125][126][243][255] [100][2][56][255]
-		rgbaColor := color.RGBA{pixel[0], pixel[1], pixel[2], pixel[3]}
-		uniqueColors[rgbaColor] = uniqueColors[rgbaColor] + 1
+	const rgbLen = 3
+	uniqueColors := make(map[[rgbLen]byte]int)
 
-	}
-	//make it into slice as map is not sortable
-	//TOOD go sort with another array ? make two slices and just search array of slices
-	type ColorCounter struct {
-		Key   color.Color
-		Value int
-	}
-	var colorCounterList []ColorCounter
-	for color, colorCount := range uniqueColors { //TODO - or just compare the count and save it
-		colorCounterList = append(colorCounterList, ColorCounter{color, colorCount})
-	}
-	sort.Slice(colorCounterList, func(i, j int) bool {
-		return colorCounterList[i].Value > colorCounterList[j].Value
-	})
+	var cA, cB, cC [3]byte
+	var aCount, bCount, cCount int
 
+	pixLen := len(imgPix)
+	const rgbaLen = 4
+	for i := 0; i < pixLen; i += rgbaLen {
+		var pixel [rgbLen]byte
+		copy(pixel[:], imgPix[i:i+rgbLen:i+rgbLen]) //getting RGBA [125][126][243][255] [100][2][56][255]
+		colorOccurences := uniqueColors[pixel] + 1
+		switch {
+		case colorOccurences > aCount:
+			aCount = colorOccurences
+			cA = pixel
+		case colorOccurences > bCount:
+			bCount = colorOccurences
+			cB = pixel
+		case colorOccurences > cCount:
+			cCount = colorOccurences
+			cC = pixel
+		}
+		uniqueColors[pixel] = colorOccurences
+	}
 	//guard for less colorfull images
-	listLen := len(colorCounterList)
-	switch {
-	case listLen < 2:
-		return colorCounterList[0].Key, colorCounterList[0].Key, colorCounterList[0].Key, nil
-	case listLen < 3:
-		return colorCounterList[0].Key, colorCounterList[1].Key, colorCounterList[1].Key, nil
-	default:
-		return colorCounterList[0].Key, colorCounterList[1].Key, colorCounterList[2].Key, nil
+	if bCount == 0 {
+		cB = cA
 	}
+	if cCount == 0 {
+		cC = cA
+	}
+
+	//for now, keep the interface
+	crgba := func(c [rgbLen]byte) color.RGBA { return color.RGBA{c[0], c[1], c[2], 0xff} }
+	return crgba(cA), crgba(cB), crgba(cC), nil
 }

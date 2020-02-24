@@ -255,13 +255,13 @@ func TestSolidPictureShouldReturnSameColor(t *testing.T) {
 
 	for x := 0; x < imgWidth; x++ {
 		for y := 0; y < imgHeight; y++ {
-			testImage.Set(x, y, dominantColors["orange"])
+			testImage.Set(x, y, dominantColors["yellow"])
 		}
 	}
 
 	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
 	colors := []color.Color{colorA, colorB, colorC}
-	expectedColors := []color.Color{dominantColors["orange"], dominantColors["orange"], dominantColors["orange"]}
+	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["yellow"], dominantColors["yellow"]}
 
 	for i := 0; i < len(expectedColors); i++ {
 		if colors[i] != expectedColors[i] {
