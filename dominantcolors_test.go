@@ -226,7 +226,7 @@ func generateTestImage(width int, height int, mode ImageGeneratorMode) (image.Im
 	return testImage, nil
 }
 
-//TODO FIX Test is failing now
+//TODO FIX Commented out since the test is failing now, after change of imgGen function
 // func TestCorrectColorOutput(t *testing.T) {
 // 	imgWidth := 12
 // 	imgHeight := 12
@@ -327,11 +327,6 @@ func BenchmarkDominantColorsMediumImg(b *testing.B) {
 
 	var testImage2 *image.RGBA
 	_ = json.Unmarshal([]byte(file), &testImage2)
-
-	// for i := 0; i < len(data.CatlogNodes); i++ {
-	// 	fmt.Println("Product Id: ", data.CatlogNodes[i].Product_id)
-	// 	fmt.Println("Quantity: ", data.CatlogNodes[i].Quantity)
-	// }
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
