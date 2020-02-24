@@ -211,17 +211,17 @@ func generateTestImage(width int, height int, mode ImageGeneratorMode) (image.Im
 		}
 	}
 
-	//test png
-	out, err := os.Create("./output.png")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	err = png.Encode(out, testImage)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	//test png - commented, we dont need to create test png now
+	// out, err := os.Create("./output.png")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
+	// err = png.Encode(out, testImage)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
 
 	return testImage, nil
 }
