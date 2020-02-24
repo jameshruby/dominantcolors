@@ -2,14 +2,12 @@ package main
 
 import (
 	"encoding/csv"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -123,19 +121,7 @@ func (i ImageGeneratorMode) String() string {
 	}
 }
 
-func init() {
-
-}
-
-func TestGenerateImage(t *testing.T) {
-	size := 50
-	_, err := generateTestImage(size, size, SimpleTest)
-	if err != nil {
-		t.Fatalf("%s", err)
-	}
-}
-
-func generateTestImage(width int, height int, mode ImageGeneratorMode) (image.Image, error) {
+func generateTestImage(width int, height int, mode ImageGeneratorMode) (*image.RGBA, error) {
 	testImage := image.NewRGBA(image.Rect(0, 0, width, height))
 	var getColor func(x int, y int, i int) color.RGBA
 
@@ -312,25 +298,4 @@ func BenchmarkDominantColors(b *testing.B) {
 			})
 		}
 	}
-}
-
-func BenchmarkDominantColorsMediumImg(b *testing.B) {
-	imgWidth := 12
-	imgHeight := 12
-	testImage, _ := generateTestImage(imgWidth, imgHeight, SimpleTest)
-
-	fileI, _ := json.MarshalIndent(testImage, "", " ")
-	filename := "test.json"
-	_ = ioutil.WriteFile(filename, fileI, 0644)
-
-	file, _ := ioutil.ReadFile(filename)
-
-	var testImage2 *image.RGBA
-	_ = json.Unmarshal([]byte(file), &testImage2)
-
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		DominantColors(testImage, imgWidth, imgHeight) //we don't care about actual output
-	}
-	os.Remove(filename)
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/jpeg"
 	"io"
 	"net/http"
@@ -92,40 +93,46 @@ func DownloadImage(url string) (string, error) {
 	return filename, nil
 }
 
-func GetImageFromJpeg(imagefilename string) (image.Image, image.Config, error) {
+func GetImageFromJpeg(imagefilename string) (*image.RGBA, image.Config, error) {
 	image.RegisterFormat("jpg", "jpeg", jpeg.Decode, jpeg.DecodeConfig)
 	var imageConfig image.Config
-	var imageData image.Image
+	var rgbImage *image.RGBA
 	testImage, err := os.Open(imagefilename)
 	if err != nil {
-		return imageData, imageConfig, err
+		return rgbImage, imageConfig, err
 	}
 	defer testImage.Close()
 
 	imageConfig, _, err = image.DecodeConfig(testImage)
 	if err != nil {
-		return imageData, imageConfig, fmt.Errorf("Error: Image config failed %v", err)
+		return rgbImage, imageConfig, fmt.Errorf("Error: Image config failed %v", err)
 	}
 	testImage.Seek(0, 0)
-	imageData, _, err = image.Decode(testImage)
+	imageData, _, err := image.Decode(testImage)
 	if err != nil {
-		return imageData, imageConfig, err
+		return rgbImage, imageConfig, err
 	}
-	return imageData, imageConfig, nil
+
+	//make RGBA out of it
+	imageBounds := imageData.Bounds()
+	rgbImage = image.NewRGBA(image.Rect(0, 0, imageBounds.Dx(), imageBounds.Dy()))
+	draw.Draw(rgbImage, rgbImage.Bounds(), imageData, imageBounds.Min, draw.Src)
+	return rgbImage, imageConfig, nil
 }
 
-func DominantColors(image image.Image, width int, height int) (color.Color, color.Color, color.Color, error) {
+func DominantColors(image *image.RGBA, width int, height int) (color.Color, color.Color, color.Color, error) {
 	if width == 0 || height == 0 {
 		var nilColor color.Color
 		return nilColor, nilColor, nilColor, errors.New("image size was 0")
 	}
-	//build a map of unique colors and its sum
+	//build a map of unique colors and its sum, pix is array with colors just stacked behind each other
+	imgPix := image.Pix
 	uniqueColors := make(map[color.Color]int)
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			color := color.RGBAModel.Convert(image.At(x, y))
-			uniqueColors[color] = uniqueColors[color] + 1
-		}
+	for i := 0; i < len(imgPix); i += 4 {
+		pixel := imgPix[i : i+4 : i+4] //getting RGBA [125][126][243][255] [100][2][56][255]
+		rgbaColor := color.RGBA{pixel[0], pixel[1], pixel[2], pixel[3]}
+		uniqueColors[rgbaColor] = uniqueColors[rgbaColor] + 1
+
 	}
 	//make it into slice as map is not sortable
 	//TOOD go sort with another array ? make two slices and just search array of slices
