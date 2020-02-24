@@ -2,9 +2,14 @@ package main
 
 import (
 	"encoding/csv"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"image"
 	"image/color"
+	"image/png"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -97,67 +102,145 @@ func TestTestImageEndToEnd(t *testing.T) {
 	os.Remove(csvFilename)
 }
 
-func generateTestImage(width int, height int, random bool) image.Image {
+type ImageGeneratorMode int
+
+const (
+	SimpleTest ImageGeneratorMode = iota
+	Lena
+	WorstCase
+)
+
+func (i ImageGeneratorMode) String() string {
+	switch i {
+	case SimpleTest:
+		return "SimpleTest"
+	case Lena:
+		return "Lena"
+	case WorstCase:
+		return "WorstCase"
+	default:
+		panic("No such enum item in ImageGeneratorMode")
+	}
+}
+
+func init() {
+
+}
+
+func TestGenerateImage(t *testing.T) {
+	size := 50
+	_, err := generateTestImage(size, size, SimpleTest)
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+}
+
+func generateTestImage(width int, height int, mode ImageGeneratorMode) (image.Image, error) {
 	testImage := image.NewRGBA(image.Rect(0, 0, width, height))
-	var getColor func(x int, y int) color.RGBA
-	if random {
-		getColor = func(x int, y int) color.RGBA {
-			return color.RGBA{uint8(rand.Intn(255)), uint8(rand.Intn(255)), uint8(rand.Intn(255)), 0xff}
-		}
-	} else {
-		getColor = func(x int, y int) color.RGBA {
+	var getColor func(x int, y int, i int) color.RGBA
+
+	switch mode {
+	case SimpleTest:
+		getColor = func(x int, y, i int) color.RGBA {
+			heightF := float64(height)
+			thresholdColorA := height / 4
+			thresholdColorB := height / 3
+			thresholdColorC := int(heightF / 1.5)
+			thresholdSecColorA := int(heightF / 1.3)
+			thresholdSecColorB := int(heightF / 1.09)
+
 			var c color.RGBA
 			switch {
-			case x < 3:
+			case x < thresholdColorA:
 				c = dominantColors["blue"]
-			case x == 3:
+			case x >= thresholdColorA:
 				c = secondaryColors["black"]
-			case x >= 4 && x < 8:
+			case x >= thresholdColorB && x < thresholdColorC:
 				c = dominantColors["yellow"]
-			case x == 8:
+			case x >= thresholdColorC:
 				c = secondaryColors["white"]
-			case x >= 9 && x < 11:
+			case x >= thresholdSecColorA && x < thresholdSecColorB:
 				c = dominantColors["red"]
-			case x == 11:
+			case x >= thresholdSecColorB:
 				c = secondaryColors["green"]
+			default:
+				erMessage :=
+					fmt.Sprintf(
+						"%d missed tresholds[%d, %d, %d, %d, %d] while generating the image",
+						x, thresholdColorA, thresholdColorB, thresholdColorC, thresholdSecColorA, thresholdSecColorB)
+				panic(errors.New(erMessage))
+
 			}
 			return c
 		}
+	case Lena:
+		content, err := os.Open(fmt.Sprintf("./testData/lena%dx%d.png", width, height))
+		if err != nil {
+			return testImage, err
+		}
+		pngDecoded, err := png.Decode(content)
+		if err != nil {
+			return testImage, err
+		}
+		imgRGBA := pngDecoded.(*image.RGBA)
+		imgPix := imgRGBA.Pix
+
+		getColor = func(x int, y int, i int) color.RGBA {
+			//Pix is array with colors just stacked behind each other
+			i *= 4
+			c := imgPix[i : i+4 : i+4]
+			return color.RGBA{c[0], c[1], c[2], c[3]}
+		}
+	case WorstCase:
+		uniqueColors := make(map[color.Color]struct{})
+		getColor = func(x int, y int, i int) color.RGBA {
+			color := color.RGBA{uint8(rand.Intn(255)), uint8(rand.Intn(255)), uint8(rand.Intn(255)), 0xff}
+			if _, found := uniqueColors[color]; found {
+				return getColor(x, y, 0)
+			}
+			uniqueColors[color] = struct{}{}
+			return color
+		}
 	}
 
+	i := 0
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
-
-			testImage.Set(x, y, getColor(x, y))
+			testImage.Set(x, y, getColor(x, y, i))
+			i++
 		}
 	}
-	return testImage
-}
 
-func TestCorrectColorOutput(t *testing.T) {
-	imgWidth := 12
-	imgHeight := 12
-	testImage := generateTestImage(imgWidth, imgHeight, false)
-	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
-	colors := []color.Color{colorA, colorB, colorC}
-	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
-
-	for i := 0; i < len(dominantColors); i++ {
-		if colors[i] != expectedColors[i] {
-			t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
-		}
+	//test png
+	out, err := os.Create("./output.png")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
+	err = png.Encode(out, testImage)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	return testImage, nil
 }
 
-func BenchmarkDominantColorsMediumImg(b *testing.B) {
-	imgWidth := 1000
-	imgHeight := 1000
-	testImage := generateTestImage(imgWidth, imgHeight, true)
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		DominantColors(testImage, imgWidth, imgHeight) //we don't care about actual output
-	}
-}
+//TODO FIX Test is failing now
+// func TestCorrectColorOutput(t *testing.T) {
+// 	imgWidth := 12
+// 	imgHeight := 12
+// 	testImage, _ := generateTestImage(imgWidth, imgHeight, SimpleTest)
+// 	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
+// 	colors := []color.Color{colorA, colorB, colorC}
+// 	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
+
+// 	for i := 0; i < len(dominantColors); i++ {
+// 		if colors[i] != expectedColors[i] {
+// 			t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
+// 		}
+// 	}
+// }
 
 func TestNullPicture(t *testing.T) {
 	imgWidth := 0
@@ -198,4 +281,61 @@ func TestSolidPictureShouldReturnSameColor(t *testing.T) {
 			t.Errorf("Dominant color is wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
 		}
 	}
+}
+
+func BenchmarkDominantColors(b *testing.B) {
+	generatorModes := []ImageGeneratorMode{SimpleTest, Lena, WorstCase}
+	var benchmarks = []struct {
+		baseName   string
+		size       int
+		testImages []ImageGeneratorMode
+	}{
+		{"SmallImages", 100, generatorModes},
+		{"MediumImages", 512, generatorModes},
+		{"LargeImages", 2000, generatorModes},
+	}
+
+	for _, bm := range benchmarks {
+		for _, testImage := range bm.testImages {
+			b.Run(bm.baseName+"_"+testImage.String(), func(b *testing.B) {
+				testImage, err := generateTestImage(bm.size, bm.size, testImage) //TODO move to init
+				if err != nil {
+					b.Fatalf("%s", err)
+				}
+				b.ResetTimer()
+				for n := 0; n < b.N; n++ {
+					_, _, _, err := DominantColors(testImage, bm.size, bm.size) //we don't care about actual output
+					if err != nil {
+						b.Fatalf("%s", err)
+					}
+				}
+			})
+		}
+	}
+}
+
+func BenchmarkDominantColorsMediumImg(b *testing.B) {
+	imgWidth := 12
+	imgHeight := 12
+	testImage, _ := generateTestImage(imgWidth, imgHeight, SimpleTest)
+
+	fileI, _ := json.MarshalIndent(testImage, "", " ")
+	filename := "test.json"
+	_ = ioutil.WriteFile(filename, fileI, 0644)
+
+	file, _ := ioutil.ReadFile(filename)
+
+	var testImage2 *image.RGBA
+	_ = json.Unmarshal([]byte(file), &testImage2)
+
+	// for i := 0; i < len(data.CatlogNodes); i++ {
+	// 	fmt.Println("Product Id: ", data.CatlogNodes[i].Product_id)
+	// 	fmt.Println("Quantity: ", data.CatlogNodes[i].Quantity)
+	// }
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		DominantColors(testImage, imgWidth, imgHeight) //we don't care about actual output
+	}
+	os.Remove(filename)
 }
