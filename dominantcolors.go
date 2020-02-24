@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"io"
@@ -64,10 +63,10 @@ func OpenTheList(urlListFile string) (*bufio.Scanner, io.Closer, error) {
 	return scanner, file, nil
 }
 
-func ColorToRGBHexString(color color.Color) string {
-	r, g, b, _ := color.RGBA()
-	ra, ga, ba := uint8(r/0x101), uint8(g/0x101), uint8(b/0x101)
-	return fmt.Sprintf("#%X%X%X", ra, ga, ba)
+const rgbLen = 3
+
+func ColorToRGBHexString(color [rgbLen]byte) string {
+	return fmt.Sprintf("#%X%X%X", color[0], color[1], color[2])
 }
 
 func DownloadImage(url string) (string, error) {
@@ -119,17 +118,15 @@ func GetImageFromJpeg(imagefilename string) (*image.RGBA, image.Config, error) {
 	return rgbImage, imageConfig, nil
 }
 
-func DominantColors(image *image.RGBA, width int, height int) (color.Color, color.Color, color.Color, error) {
-	var nilColor color.Color
+func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rgbLen]byte, [rgbLen]byte, error) {
+	var cA, cB, cC [rgbLen]byte
 	if width == 0 || height == 0 {
-		return nilColor, nilColor, nilColor, errors.New("image size was 0")
+		return cA, cB, cC, errors.New("image size was 0")
 	}
 	//build a map of unique colors and its sum, pix is array with colors just stacked behind each other
 	imgPix := image.Pix
-	const rgbLen = 3
 	uniqueColors := make(map[[rgbLen]byte]int)
 
-	var cA, cB, cC [3]byte
 	var aCount, bCount, cCount int
 
 	pixLen := len(imgPix)
@@ -158,8 +155,5 @@ func DominantColors(image *image.RGBA, width int, height int) (color.Color, colo
 	if cCount == 0 {
 		cC = cA
 	}
-
-	//for now, keep the interface
-	crgba := func(c [rgbLen]byte) color.RGBA { return color.RGBA{c[0], c[1], c[2], 0xff} }
-	return crgba(cA), crgba(cB), crgba(cC), nil
+	return cA, cB, cC, nil
 }
