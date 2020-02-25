@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
-	"image/jpeg"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"os"
@@ -28,9 +30,9 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 		filename, err := DownloadImage(url)
 		HandleError(err, "failed to download the file")
 
-		image, imageConfig, err := GetImageFromJpeg(filename)
-		HandleError(err, "failed to process image")
-		colorA, colorB, colorC, err := DominantColors(image, imageConfig.Width, imageConfig.Height)
+		image, Dx, Dy, err := GetImageFromJpeg(filename)
+		HandleError(err, "failed to process image "+filename)
+		colorA, colorB, colorC, err := DominantColors(image, Dx, Dy)
 		HandleError(err, "")
 
 		os.Remove(filename)
@@ -91,31 +93,26 @@ func DownloadImage(url string) (string, error) {
 	return filename, nil
 }
 
-func GetImageFromJpeg(imagefilename string) (*image.RGBA, image.Config, error) {
-	image.RegisterFormat("jpg", "jpeg", jpeg.Decode, jpeg.DecodeConfig)
-	var imageConfig image.Config
+func GetImageFromJpeg(imagefilename string) (img *image.RGBA, Dx int, Dy int, err error) {
 	var rgbImage *image.RGBA
 	testImage, err := os.Open(imagefilename)
 	if err != nil {
-		return rgbImage, imageConfig, err
+		return rgbImage, 0, 0, err
 	}
 	defer testImage.Close()
-
-	imageConfig, _, err = image.DecodeConfig(testImage)
 	if err != nil {
-		return rgbImage, imageConfig, fmt.Errorf("Error: Image config failed %v", err)
+		return rgbImage, 0, 0, err
 	}
 	testImage.Seek(0, 0)
 	imageData, _, err := image.Decode(testImage)
 	if err != nil {
-		return rgbImage, imageConfig, err
+		return rgbImage, 0, 0, err
 	}
-
 	//make RGBA out of it
 	imageBounds := imageData.Bounds()
 	rgbImage = image.NewRGBA(image.Rect(0, 0, imageBounds.Dx(), imageBounds.Dy()))
 	draw.Draw(rgbImage, rgbImage.Bounds(), imageData, imageBounds.Min, draw.Src)
-	return rgbImage, imageConfig, nil
+	return rgbImage, imageBounds.Dx(), imageBounds.Dy(), nil
 }
 
 func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rgbLen]byte, [rgbLen]byte, error) {
