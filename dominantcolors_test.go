@@ -59,7 +59,10 @@ var secondaryColorsByte = map[string][3]byte{
 func TestJpegColorOutput(t *testing.T) {
 	filename := "./testData/test.jpg"
 
-	image, Dx, Dy, _ := GetImageFromJpeg(filename)
+	image, Dx, Dy, err := GetImageFromJpeg(filename)
+	if err != nil {
+		t.Error(err)
+	}
 	colorA, colorB, colorC, _ := DominantColors(image, Dx, Dy)
 
 	colors := [][3]byte{colorA, colorB, colorC}
