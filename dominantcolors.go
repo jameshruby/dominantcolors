@@ -106,7 +106,10 @@ func GetImageFromJpeg(imagefilename string) (img *image.RGBA, Dx int, Dy int, er
 	if err != nil {
 		return rgbImage, 0, 0, err
 	}
-	testImage.Seek(0, 0)
+	_, err = testImage.Seek(0, 0) //TODO is this really needed ?
+	if err != nil {
+		return rgbImage, 0, 0, err
+	}
 	imageData, _, err := image.Decode(testImage)
 	if err != nil {
 		return rgbImage, 0, 0, err
