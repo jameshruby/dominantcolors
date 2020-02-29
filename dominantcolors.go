@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
+	"time"
 )
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
@@ -78,7 +80,8 @@ func DownloadImage(url string) (string, error) {
 	}
 	defer response.Body.Close()
 
-	filename := path.Base(url)
+	timePrefix := strconv.FormatInt(int64(time.Now().UnixNano()), 10)
+	filename := timePrefix + "_" + path.Base(url)
 	file, err := os.Create(filename)
 	if err != nil {
 		return "", err
