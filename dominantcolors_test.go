@@ -59,7 +59,7 @@ var secondaryColorsByte = map[string][3]byte{
 func TestJpegColorOutput(t *testing.T) {
 	filename := "./testData/test.jpg"
 
-	image, Dx, Dy, err := GetImageFromJpeg(filename)
+	image, Dx, Dy, err := GetRGBAImage(filename)
 	if err != nil {
 		t.Error(err)
 	}
@@ -297,7 +297,7 @@ func TestImgTypeSwichingWithEvilPostfix(t *testing.T) {
 	if err != nil {
 		t.Errorf("%v", err)
 	}
-	_, _, _, err = GetImageFromJpeg(filename)
+	_, _, _, err = GetRGBAImage(filename)
 	if err != nil {
 		t.Errorf("Failed to open the image: %v", err)
 	}
@@ -334,3 +334,16 @@ func BenchmarkDominantColors(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkImageDownload(b *testing.B) {
+	filenames := DownloadAllImages("./testData/input.txt")
+	b.StopTimer()
+	for _, f := range filenames {
+		os.Remove(f)
+	}
+}
+
+// func TestImageDownload(t *testing.T) {
+// 	f := DownloadAllImages("./testData/input.txt")
+// 	t.Logf("%v", f)
+// }

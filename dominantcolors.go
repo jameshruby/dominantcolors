@@ -32,7 +32,7 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 		filename, err := DownloadImage(url)
 		HandleError(err, "failed to download the file")
 
-		image, Dx, Dy, err := GetImageFromJpeg(filename)
+		image, Dx, Dy, err := GetRGBAImage(filename)
 		HandleError(err, "failed to process image "+filename)
 		colorA, colorB, colorC, err := DominantColors(image, Dx, Dy)
 		HandleError(err, "")
@@ -96,7 +96,7 @@ func DownloadImage(url string) (string, error) {
 	return filename, nil
 }
 
-func GetImageFromJpeg(imagefilename string) (img *image.RGBA, Dx int, Dy int, err error) {
+func GetRGBAImage(imagefilename string) (img *image.RGBA, Dx int, Dy int, err error) {
 	var rgbImage *image.RGBA
 	testImage, err := os.Open(imagefilename)
 	if err != nil {
