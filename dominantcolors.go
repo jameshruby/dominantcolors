@@ -18,28 +18,31 @@ import (
 	"time"
 )
 
+
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
-	linksScanner, fileHandle, err := OpenTheList(urlListFile)
-	HandleError(err, "couldn't open the links list")
-	defer fileHandle.Close()
-	//create CSV file
-	outputCSV, err := os.Create(csvFilename)
-	HandleError(err, "failed creating CSV file")
-	writerCSV := csv.NewWriter(outputCSV)
-
-	for linksScanner.Scan() {
-		url := linksScanner.Text()
-		filename, err := DownloadImage(url)
-		HandleError(err, "failed to download the file")
-
+	filenames, links := DownloadAllImages(urlListFile)
+	//get all colors
+	var allColors [][3]string
+	
+	for _, filename := range filenames {
 		image, Dx, Dy, err := GetRGBAImage(filename)
 		HandleError(err, "failed to process image "+filename)
 		colorA, colorB, colorC, err := DominantColors(image, Dx, Dy)
 		HandleError(err, "")
+		//remove temp file
+		// err = os.Remove(filename)
+		// HandleError(err, "")
+		str := [3]string{ColorToRGBHexString(colorA), ColorToRGBHexString(colorB), ColorToRGBHexString(colorC)}
+		allColors = append(allColors, str)
+	}
 
-		os.Remove(filename)
-		HandleError(err, "")
-		err = writerCSV.Write([]string{url, ColorToRGBHexString(colorA), ColorToRGBHexString(colorB), ColorToRGBHexString(colorC)})
+	//create CSV file
+	outputCSV, err := os.Create(csvFilename)
+	HandleError(err, "failed creating CSV file")
+	writerCSV := csv.NewWriter(outputCSV)
+	//TODO not sure which approach will work better with goroutines/ structures vs channel/slice merge
+	for i := 0; i < len(links); i++ {
+		err = writerCSV.Write([]string{links[i], allColors[i][0], allColors[i][1], allColors[i][2] })
 		HandleError(err, "CSV writer failed")
 	}
 	writerCSV.Flush()
@@ -73,6 +76,36 @@ func ColorToRGBHexString(color [rgbLen]byte) string {
 	return fmt.Sprintf("#%X%X%X", color[0], color[1], color[2])
 }
 
+
+func DownloadAllImagesStub(linksFile string) ([]string, []string) {
+	filenames := []string{}
+	links := []string{}
+	linksScanner, fileHandle, err := OpenTheList(linksFile)
+	HandleError(err, "couldn't open the links list")
+	for linksScanner.Scan() {
+		filenames = append(filenames, linksScanner.Text())
+		links = append(links, linksScanner.Text())
+	}
+	fileHandle.Close()
+	return filenames, links
+}
+func DownloadAllImages(linksFile string) ([]string, []string) {
+	linksScanner, fileHandle, err := OpenTheList(linksFile)
+	links := []string{}
+	HandleError(err, "couldn't open the links list")
+	defer fileHandle.Close()
+	HandleError(err, "failed creating CSV file")
+
+	var filenames []string
+	for linksScanner.Scan() {
+		url := linksScanner.Text()
+		filename, err := DownloadImage(url)
+		HandleError(err, "failed to download tjhe file")
+		filenames = append(filenames, filename)
+		links = append(links, url)
+	}
+	return filenames, links
+}
 func DownloadImage(url string) (string, error) {
 	response, err := http.Get(url)
 	if err != nil {
@@ -120,7 +153,6 @@ func GetRGBAImage(imagefilename string) (img *image.RGBA, Dx int, Dy int, err er
 	draw.Draw(rgbImage, rgbImage.Bounds(), imageData, imageBounds.Min, draw.Src)
 	return rgbImage, imageBounds.Dx(), imageBounds.Dy(), nil
 }
-
 func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rgbLen]byte, [rgbLen]byte, error) {
 	var cA, cB, cC [rgbLen]byte
 	if width == 0 || height == 0 {
