@@ -338,8 +338,8 @@ func BenchmarkDominantColors(b *testing.B) {
 func BenchmarkImageDownload(b *testing.B) {
 	filenames := DownloadAllImages("./testData/input.txt")
 	b.StopTimer()
-	for _, f := range filenames {
-		os.Remove(f)
+	for f := range filenames {
+		os.Remove(f.filename)
 	}
 }
 

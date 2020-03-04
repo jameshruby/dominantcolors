@@ -1,5 +1,13 @@
 package main
 
+/*
+EXECUTION TIMES DOESNT MATTER AS MUCH AS OUR ABILLITY TO USE 
+RESOURCES 
+IT CAN TAKE SECONDS. THERES NO POINT IN SPENDIND AGES ON OBSSESING WITH SPEED
+HOW TO MAKE PIPELINE MORE EFICIENT ?
+WE STILL HAVE CPU SPIKES....SO THE GOAL SHOULD REALLY BE JUST TO GET RID OF THEM
+*/
+
 import (
 	"bufio"
 	"encoding/csv"
@@ -18,37 +26,58 @@ import (
 	"time"
 )
 
+const BUFFER_SIZE = 50
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
-	filenames, links := DownloadAllImages(urlListFile)
-	//get all colors
-	var allColors [][3]string
-	
-	for _, filename := range filenames {
-		image, Dx, Dy, err := GetRGBAImage(filename)
-		HandleError(err, "failed to process image "+filename)
-		colorA, colorB, colorC, err := DominantColors(image, Dx, Dy)
-		HandleError(err, "")
-		//remove temp file
-		// err = os.Remove(filename)
-		// HandleError(err, "")
-		str := [3]string{ColorToRGBHexString(colorA), ColorToRGBHexString(colorB), ColorToRGBHexString(colorC)}
-		allColors = append(allColors, str)
-	}
+	chImgInfo := DownloadAllImages(urlListFile)
+	////get all colors
+	st := DominantColorsFromRGBAImage(chImgInfo)
+	saveEverythingToCSV(st)
+}
 
-	//create CSV file
+//TODO not sure which approach will work better with goroutines/ structures vs channel/slice merge
+func saveEverythingToCSV(st <-chan [4]string)  {
+	//create CSV file,
+	csvFilename := "huhu.csv"
 	outputCSV, err := os.Create(csvFilename)
 	HandleError(err, "failed creating CSV file")
 	writerCSV := csv.NewWriter(outputCSV)
-	//TODO not sure which approach will work better with goroutines/ structures vs channel/slice merge
-	for i := 0; i < len(links); i++ {
-		err = writerCSV.Write([]string{links[i], allColors[i][0], allColors[i][1], allColors[i][2] })
-		HandleError(err, "CSV writer failed")
-	}
-	writerCSV.Flush()
-	outputCSV.Close()
-	HandleError(err, "failed to close CSV file")
+	//TODO can this run concurrently too ?
+	// go func() {
+		for line := range st {
+			err = writerCSV.Write(line[:])
+			// fmt.Printf("%v %v %v %v \n", line[0], line[1], line[2], line[3])
+			// HandleError(err, "CSV writer failed")
+		}
+		writerCSV.Flush()
+		outputCSV.Close()
+	// }()
+	// HandleError(err, "failed to close CSV file")
 }
+
+func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) <-chan [4]string { 
+	out := make(chan [4]string, 10)  //BUFFER_SIZE
+	go func ()  {
+		for imgInfo := range chImgInfo {
+			// fmt.Println("-- opening the image " + imgInfo.filename)
+			image, Dx, Dy, err := GetRGBAImage(imgInfo.filename)
+			// fmt.Println("-- opening the image DONE")
+			HandleError(err, "failed to process image "+imgInfo.filename)
+			// fmt.Println("-- dominant colors " + imgInfo.filename)
+			colorA, colorB, colorC, err := DominantColors(image, Dx, Dy)
+			// fmt.Println("-- dominant colors DONE")
+			HandleError(err, "")
+			out <- [4]string{imgInfo.link, ColorToRGBHexString(colorA), ColorToRGBHexString(colorB), ColorToRGBHexString(colorC)}
+		}
+		close(out)
+	}()
+	return out
+
+	//remove temp file
+	// err = os.Remove(filename)
+	// HandleError(err, "")
+}
+
 
 func HandleError(err error, extendedMessage string) {
 	if err != nil {
@@ -76,37 +105,45 @@ func ColorToRGBHexString(color [rgbLen]byte) string {
 	return fmt.Sprintf("#%X%X%X", color[0], color[1], color[2])
 }
 
-
-func DownloadAllImagesStub(linksFile string) ([]string, []string) {
-	filenames := []string{}
-	links := []string{}
-	linksScanner, fileHandle, err := OpenTheList(linksFile)
-	HandleError(err, "couldn't open the links list")
-	for linksScanner.Scan() {
-		filenames = append(filenames, linksScanner.Text())
-		links = append(links, linksScanner.Text())
-	}
-	fileHandle.Close()
-	return filenames, links
+type imageInfo struct {
+	filename string
+	link string
 }
-func DownloadAllImages(linksFile string) ([]string, []string) {
-	linksScanner, fileHandle, err := OpenTheList(linksFile)
-	links := []string{}
-	HandleError(err, "couldn't open the links list")
-	defer fileHandle.Close()
-	HandleError(err, "failed creating CSV file")
+func DownloadAllImagesStub(linksFile string) (<-chan imageInfo) {
+	chImgInfo := make(chan imageInfo)
+	linksScanner, fileHandle, _ := OpenTheList(linksFile)
+	// HandleError(err, "couldn't open the links list")
+	go func() {
+		for linksScanner.Scan() {
+			line := linksScanner.Text()
+			chImgInfo <- imageInfo {line,  "LINK_"+line}
+		}
+		close(chImgInfo)
+		fileHandle.Close()
+	}()
+	return chImgInfo
+}
+func DownloadAllImages(linksFile string) (<-chan imageInfo) {
+	linksScanner, fileHandle, _ := OpenTheList(linksFile)
+	chImgInfo := make(chan imageInfo, BUFFER_SIZE)
+	// HandleError(err, "couldn't open the links list")
+	// defer fileHandle.Close()
+	// HandleError(err, "failed creating CSV file")
 
-	var filenames []string
-	for linksScanner.Scan() {
-		url := linksScanner.Text()
-		filename, err := DownloadImage(url)
-		HandleError(err, "failed to download tjhe file")
-		filenames = append(filenames, filename)
-		links = append(links, url)
-	}
-	return filenames, links
+	go func() {	
+		for linksScanner.Scan() {
+			url := linksScanner.Text()
+			filename, err := DownloadImage(url)
+			HandleError(err, "failed to download tjhe file")
+			chImgInfo <- imageInfo {filename, url}
+		}
+		close(chImgInfo)
+		fileHandle.Close()
+	}()
+	return chImgInfo
 }
 func DownloadImage(url string) (string, error) {
+	// fmt.Println("-- downloading " + url)
 	response, err := http.Get(url)
 	if err != nil {
 		return "", err
@@ -125,7 +162,7 @@ func DownloadImage(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// fmt.Println("image downloaded")
+	// fmt.Println("-- downloading FINISHED")
 	return filename, nil
 }
 
