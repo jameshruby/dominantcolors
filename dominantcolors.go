@@ -109,6 +109,23 @@ type imageInfo struct {
 	filename string
 	link string
 }
+// const HEX16 := 0xFF
+func RGBToInt(color [3]byte) int {
+	r, g, b := int(color[0]), int(color[1]), int(color[2])
+	// rgb := r
+	// rgb = (rgb << 8) + g
+	// rgb = (rgb << 8) + b
+
+	rgb := ( (r & 0xFF) << 16) | ( (g & 0xFF ) << 8 ) | (b & 0xFF)
+	return rgb
+}
+func IntToRGB(rgb int) [3]byte {
+	r := (rgb >> 16) & 0xFF;
+	g := (rgb >> 8) & 0xFF;
+	b := rgb & 0xFF;
+	return [3]byte{byte(r), byte(g), byte(b)}
+}
+
 func DownloadAllImagesStub(linksFile string) (<-chan imageInfo) {
 	chImgInfo := make(chan imageInfo)
 	linksScanner, fileHandle, _ := OpenTheList(linksFile)
@@ -191,18 +208,21 @@ func GetRGBAImage(imagefilename string) (img *image.RGBA, Dx int, Dy int, err er
 	return rgbImage, imageBounds.Dx(), imageBounds.Dy(), nil
 }
 func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rgbLen]byte, [rgbLen]byte, error) {
-	var cA, cB, cC [rgbLen]byte
 	if width == 0 || height == 0 {
-		return cA, cB, cC, errors.New("image size was 0")
+		var ccA, ccB, ccC [rgbLen]byte
+		return ccA, ccB, ccC, errors.New("image size was 0")
 	}
 	//build a map of unique colors and its sum, pix is array with colors just stacked behind each other
 	imgPix := image.Pix
-	uniqueColors := make(map[[rgbLen]byte]int)
+	uniqueColors := make(map[int]int)
+	var cA, cB, cC int
 	var aCount, bCount, cCount int
 	const rgbaLen = 4
 	for i := 0; i < len(imgPix); i += rgbaLen {
-		var pixel [rgbLen]byte
-		copy(pixel[:], imgPix[i:i+rgbLen:i+rgbLen]) //getting RGBA [125][126][243][255] [100][2][56][255]
+		var pix [rgbLen]byte
+		copy(pix[:], imgPix[i:i+rgbLen:i+rgbLen]) //getting RGBA [125][126][243][255] [100][2][56][255]
+		pixel := RGBToInt(pix) 
+		
 		colorOccurences := uniqueColors[pixel] + 1
 		switch {
 		case colorOccurences > aCount:
@@ -224,5 +244,5 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 	if cCount == 0 {
 		cC = cA
 	}
-	return cA, cB, cC, nil
+	return IntToRGB(cA), IntToRGB(cB), IntToRGB(cC), nil
 }
