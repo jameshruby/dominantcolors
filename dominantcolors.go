@@ -1,8 +1,8 @@
 package main
 
 /*
-EXECUTION TIMES DOESNT MATTER AS MUCH AS OUR ABILLITY TO USE 
-RESOURCES 
+EXECUTION TIMES DOESNT MATTER AS MUCH AS OUR ABILLITY TO USE
+RESOURCES
 IT CAN TAKE SECONDS. THERES NO POINT IN SPENDIND AGES ON OBSSESING WITH SPEED
 HOW TO MAKE PIPELINE MORE EFICIENT ?
 WE STILL HAVE CPU SPIKES....SO THE GOAL SHOULD REALLY BE JUST TO GET RID OF THEM
@@ -36,7 +36,7 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 }
 
 //TODO not sure which approach will work better with goroutines/ structures vs channel/slice merge
-func saveEverythingToCSV(st <-chan [4]string)  {
+func saveEverythingToCSV(st <-chan [4]string) {
 	//create CSV file,
 	csvFilename := "huhu.csv"
 	outputCSV, err := os.Create(csvFilename)
@@ -44,20 +44,20 @@ func saveEverythingToCSV(st <-chan [4]string)  {
 	writerCSV := csv.NewWriter(outputCSV)
 	//TODO can this run concurrently too ?
 	// go func() {
-		for line := range st {
-			err = writerCSV.Write(line[:])
-			// fmt.Printf("%v %v %v %v \n", line[0], line[1], line[2], line[3])
-			// HandleError(err, "CSV writer failed")
-		}
-		writerCSV.Flush()
-		outputCSV.Close()
+	for line := range st {
+		err = writerCSV.Write(line[:])
+		// fmt.Printf("%v %v %v %v \n", line[0], line[1], line[2], line[3])
+		// HandleError(err, "CSV writer failed")
+	}
+	writerCSV.Flush()
+	outputCSV.Close()
 	// }()
 	// HandleError(err, "failed to close CSV file")
 }
 
-func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) <-chan [4]string { 
-	out := make(chan [4]string, 10)  //BUFFER_SIZE
-	go func ()  {
+func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) <-chan [4]string {
+	out := make(chan [4]string, 10) //BUFFER_SIZE
+	go func() {
 		for imgInfo := range chImgInfo {
 			// fmt.Println("-- opening the image " + imgInfo.filename)
 			image, Dx, Dy, err := GetRGBAImage(imgInfo.filename)
@@ -77,7 +77,6 @@ func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) <-chan [4]string {
 	// err = os.Remove(filename)
 	// HandleError(err, "")
 }
-
 
 func HandleError(err error, extendedMessage string) {
 	if err != nil {
@@ -107,8 +106,9 @@ func ColorToRGBHexString(color [rgbLen]byte) string {
 
 type imageInfo struct {
 	filename string
-	link string
+	link     string
 }
+
 // const HEX16 := 0xFF
 func RGBToIntSlice(color []byte) int {
 	r, g, b := int(color[0]), int(color[1]), int(color[2])
