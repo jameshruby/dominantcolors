@@ -110,49 +110,58 @@ type imageInfo struct {
 	link string
 }
 // const HEX16 := 0xFF
+func RGBToIntSlice(color []byte) int {
+	r, g, b := int(color[0]), int(color[1]), int(color[2])
+	// rgb := r
+	// rgb = (rgb << 8) + g
+	// rgb = (rgb << 8) + b
+
+	rgb := ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
+	return rgb
+}
 func RGBToInt(color [3]byte) int {
 	r, g, b := int(color[0]), int(color[1]), int(color[2])
 	// rgb := r
 	// rgb = (rgb << 8) + g
 	// rgb = (rgb << 8) + b
 
-	rgb := ( (r & 0xFF) << 16) | ( (g & 0xFF ) << 8 ) | (b & 0xFF)
+	rgb := ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
 	return rgb
 }
 func IntToRGB(rgb int) [3]byte {
-	r := (rgb >> 16) & 0xFF;
-	g := (rgb >> 8) & 0xFF;
-	b := rgb & 0xFF;
+	r := (rgb >> 16) & 0xFF
+	g := (rgb >> 8) & 0xFF
+	b := rgb & 0xFF
 	return [3]byte{byte(r), byte(g), byte(b)}
 }
 
-func DownloadAllImagesStub(linksFile string) (<-chan imageInfo) {
+func DownloadAllImagesStub(linksFile string) <-chan imageInfo {
 	chImgInfo := make(chan imageInfo)
 	linksScanner, fileHandle, _ := OpenTheList(linksFile)
 	// HandleError(err, "couldn't open the links list")
 	go func() {
 		for linksScanner.Scan() {
 			line := linksScanner.Text()
-			chImgInfo <- imageInfo {line,  "LINK_"+line}
+			chImgInfo <- imageInfo{line, "LINK_" + line}
 		}
 		close(chImgInfo)
 		fileHandle.Close()
 	}()
 	return chImgInfo
 }
-func DownloadAllImages(linksFile string) (<-chan imageInfo) {
+func DownloadAllImages(linksFile string) <-chan imageInfo {
 	linksScanner, fileHandle, _ := OpenTheList(linksFile)
 	chImgInfo := make(chan imageInfo, BUFFER_SIZE)
 	// HandleError(err, "couldn't open the links list")
 	// defer fileHandle.Close()
 	// HandleError(err, "failed creating CSV file")
 
-	go func() {	
+	go func() {
 		for linksScanner.Scan() {
 			url := linksScanner.Text()
 			filename, err := DownloadImage(url)
 			HandleError(err, "failed to download tjhe file")
-			chImgInfo <- imageInfo {filename, url}
+			chImgInfo <- imageInfo{filename, url}
 		}
 		close(chImgInfo)
 		fileHandle.Close()
@@ -207,7 +216,16 @@ func GetRGBAImage(imagefilename string) (img *image.RGBA, Dx int, Dy int, err er
 	draw.Draw(rgbImage, rgbImage.Bounds(), imageData, imageBounds.Min, draw.Src)
 	return rgbImage, imageBounds.Dx(), imageBounds.Dy(), nil
 }
+
 func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rgbLen]byte, [rgbLen]byte, error) {
+	const CALC_INONE = true
+	if CALC_INONE {
+		return DominantColorsMap(image, width, height)
+	}
+	return DominantColorsMapA(image, width, height)
+}
+
+func DominantColorsMap(image *image.RGBA, width int, height int) ([rgbLen]byte, [rgbLen]byte, [rgbLen]byte, error) {
 	if width == 0 || height == 0 {
 		var ccA, ccB, ccC [rgbLen]byte
 		return ccA, ccB, ccC, errors.New("image size was 0")
@@ -218,11 +236,17 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 	var cA, cB, cC int
 	var aCount, bCount, cCount int
 	const rgbaLen = 4
+
+	left, right := 0, len(imgPix)-1
+
+	l := imgPix[:left]
+	r := imgPix[left+1:]
+
+	fmt.Println("%v %v %v", l, r, right)
+
 	for i := 0; i < len(imgPix); i += rgbaLen {
-		var pix [rgbLen]byte
-		copy(pix[:], imgPix[i:i+rgbLen:i+rgbLen]) //getting RGBA [125][126][243][255] [100][2][56][255]
-		pixel := RGBToInt(pix) 
-		
+		pixel := RGBToIntSlice(imgPix[i : i+4 : i+4])
+
 		colorOccurences := uniqueColors[pixel] + 1
 		switch {
 		case colorOccurences > aCount:
@@ -245,4 +269,55 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 		cC = cA
 	}
 	return IntToRGB(cA), IntToRGB(cB), IntToRGB(cC), nil
+}
+func DominantColorsMapA(image *image.RGBA, width int, height int) ([rgbLen]byte, [rgbLen]byte, [rgbLen]byte, error) {
+	if width == 0 || height == 0 {
+		var ccA, ccB, ccC [rgbLen]byte
+		return ccA, ccB, ccC, errors.New("image size was 0")
+	}
+	//build a map of unique colors and its sum, pix is array with colors just stacked behind each other
+	imgPix := image.Pix
+	uniqueColors := make(map[int]int)
+	var cA, cB, cC int
+	var aCount, bCount, cCount int
+	const rgbaLen = 4
+	for i := 0; i < len(imgPix); i += rgbaLen {
+		// var pix [rgbLen]byte
+		// copy(pix[:], imgPix[i:i+rgbLen:i+rgbLen]) //getting RGBA [125][126][243][255] [100][2][56][255]
+		// pixel := RGBToInt(pix)
+		pixel := RGBToIntSlice(imgPix[i : i+4 : i+4])
+		colorOccurences := uniqueColors[pixel] + 1
+		uniqueColors[pixel] = colorOccurences
+	}
+
+	rcounts := []int{cA, cB, cC}
+	rcolors := []int{aCount, bCount, cCount}
+	for pixel, colorOccurences := range uniqueColors {
+		for i := 0; i < 3; i++ {
+			if colorOccurences > rcounts[i] {
+				nextI := i + 1
+				if nextI < 3 {
+					nextNextI := nextI + 1
+					if nextNextI < 3 {
+						rcounts[nextNextI] = rcounts[nextI]
+						rcolors[nextNextI] = rcolors[nextI]
+					}
+					rcounts[nextI] = rcounts[i]
+					rcolors[nextI] = rcolors[i]
+				}
+				rcounts[i] = colorOccurences
+				rcolors[i] = pixel
+				break
+			}
+		}
+	}
+
+	//guard for less colorfull images
+	if bCount == 0 {
+		cB = cA
+	}
+	if cCount == 0 {
+		cC = cA
+	}
+	return IntToRGB(rcolors[0]), IntToRGB(rcolors[1]), IntToRGB(rcolors[2]), nil
 }
