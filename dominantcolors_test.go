@@ -230,20 +230,22 @@ func generateTestImage(width int, height int, mode ImageGeneratorMode) (*image.R
 }
 
 //TODO FIX Commented out since the test is failing now, after change of imgGen function
-// func TestCorrectColorOutput(t *testing.T) {
-// 	imgWidth := 12
-// 	imgHeight := 12
-// 	testImage, _ := generateTestImage(imgWidth, imgHeight, SimpleTest)
-// 	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
-// 	colors := []color.Color{colorA, colorB, colorC}
-// 	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
+func TestCorrectColorOutput(t *testing.T) {
+	imgWidth := 12
+	imgHeight := 12
+	testImage, _ := generateTestImage(imgWidth, imgHeight, SimpleTest)
+	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
+	t.Logf("\n %v, %v, %v \n %v %v %v \n\n", colorA, colorB, colorC, dominantColors["yellow"], dominantColors["blue"], dominantColors["red"])
+	t.Fatalf("SHOW")
+	// colors := []color.Color{colorA, colorB, colorC}
+	// expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
 
-// 	for i := 0; i < len(dominantColors); i++ {
-// 		if colors[i] != expectedColors[i] {
-// 			t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
-// 		}
-// 	}
-// }
+	// for i := 0; i < len(dominantColors); i++ {
+	// 	if colors[i] != expectedColors[i] {
+	// 		t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
+	// 	}
+	// }
+}
 
 func TestNullPicture(t *testing.T) {
 	imgWidth := 0
@@ -335,15 +337,56 @@ func BenchmarkDominantColors(b *testing.B) {
 	}
 }
 
+// func TestThrowAway()
+
+func BenchmarkThrowaway(b *testing.B) {
+	size := 3000
+	testImage, err := generateTestImage(size, size, WorstCase)
+	if err != nil {
+		b.Fatalf("%s", err)
+	}
+	b.Log("-- dominant colors")
+	b.ResetTimer()
+	b.ReportAllocs()
+	DominantColors(testImage, size, size)
+}
+
 func BenchmarkImageDownload(b *testing.B) {
 	filenames := DownloadAllImages("./testData/input.txt")
 	b.StopTimer()
-	for _, f := range filenames {
-		os.Remove(f)
+	for f := range filenames {
+		os.Remove(f.filename)
 	}
 }
 
-// func TestImageDownload(t *testing.T) {
-// 	f := DownloadAllImages("./testData/input.txt")
-// 	t.Logf("%v", f)
+// func TestKmeans(t *testing.T) {
+// 	// objects := [][3]uint8{
+// 	// 	{15, 34, 250},
+// 	// 	{15, 34, 250},
+// 	// 	{1, 1, 1},
+// 	// 	{2, 2, 2},
+// 	// 	{2, 3, 15},
+// 	// 	{15, 34, 250},
+// 	// 	{2, 2, 2},
+// 	// 	{1, 1, 1},
+// 	// 	{2, 2, 2},
+// 	// }
+// 	objectsPix := []uint8{
+// 		15, 34, 250, 255,
+// 		15, 34, 250, 255,
+// 		1, 1, 1, 255,
+// 		2, 2, 2, 255,
+// 		2, 3, 15, 255,
+// 		15, 34, 250, 255,
+// 		2, 2, 2, 255,
+// 		1, 1, 1, 255,
+// 		2, 2, 2, 255,
+// 	}
+// 	expectedColors := [][3]uint8{{2, 2, 4}, {15, 34, 79}, {15, 34, 250}}
+// 	res := KmeansPartition2(objectsPix)
+// 	for i := 0; i < len(res); i++ {
+// 		if res[i] != expectedColors[i] {
+// 			t.Errorf("Dominant color is wrong, actual: %v, expected: %v.", res[i], expectedColors[i])
+// 		}
+// 	}
 // }
