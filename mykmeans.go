@@ -2,164 +2,11 @@ package main
 
 import (
 	"math"
-	"math/rand"
 	"sort"
-	"time"
+	"sync"
 )
 
 const RGBI = 3
-
-//TODO replace 3 with shared const
-type Cluster struct {
-	Center [RGBI]byte
-	Points [][RGBI]byte //Observations
-}
-
-func ResetClusters(clusters []Cluster) {
-	for i := 0; i < len(clusters); i++ {
-		clusters[i].Points = nil
-	}
-}
-
-func RecenterClusters(clusters []Cluster) {
-	for i := 0; i < len(clusters); i++ {
-		clusters[i].Recenter()
-	}
-}
-func (cluster *Cluster) Append(point [RGBI]byte) {
-	cluster.Points = append(cluster.Points, point)
-}
-func (cluster *Cluster) Recenter() {
-	var length = len(cluster.Points)
-	var centerCoordinates [RGBI]byte
-	for _, point := range cluster.Points {
-		for j, v := range point {
-			centerCoordinates[j] += v
-		}
-	}
-	var mean [RGBI]byte
-	for i, v := range centerCoordinates {
-		mean[i] = byte(v / byte(length))
-	}
-
-	cluster.Center = mean
-}
-
-func NewCluster(clusterCount int) []Cluster {
-	//TODO FIX err check
-	var clusters []Cluster
-	//TODO check size
-
-	//We are looking at our points,
-	//and pick N random starting points for our clusters
-	// the only thing...they are COMPLETETELY random, which means possibly out of range...
-	//TODO OPTIMIZE
-
-	//generateStartingPoints
-	rand.Seed(time.Now().UnixNano())
-
-	for i := 0; i < clusterCount; i++ {
-		var startingPoint [RGBI]byte
-		for i := 0; i < RGBI; i++ {
-			startingPoint[i] = byte(rand.Int())
-		}
-		clusters = append(clusters, Cluster{Center: startingPoint})
-	}
-
-	return clusters
-}
-func NearestClusterIndex(clusters []Cluster, point [RGBI]byte) int {
-	nearestDist := -1.0
-	var nearestClusterIndex int
-	for i, cluster := range clusters {
-		currentDist := DistancePoints(cluster.Center, point)
-		if nearestDist < 0 || currentDist < nearestDist {
-			nearestDist = currentDist
-			nearestClusterIndex = i
-		}
-	}
-	return nearestClusterIndex
-}
-
-func DistancePoints(p1 [RGBI]byte, p2 [RGBI]byte) float64 {
-	var r float64
-	for i, v := range p1 {
-		va := float64(v) - float64((p2[i]))
-		r += math.Pow(float64(va), 2)
-	}
-	return r
-}
-
-//this version could iterate directly over imgPix
-func KmeansPartition(imgPix []byte, clustersCount int) []Cluster {
-	const iterationTreshold = 0
-	const deltaThreshold = 0.01
-
-	//TODO make clusters to accept [][RGBLEN] slice
-	//instead of point structure
-	clusters := NewCluster(clustersCount)
-	changes := 1
-	pixelCount := len(imgPix) / 4
-	pointCenters := make([]int, pixelCount)
-
-	for i := 0; changes > 0; i++ {
-		changes = 0
-		ResetClusters(clusters)
-
-		var point [RGBI]byte
-		z := 0
-		for i := 0; i < len(imgPix); i += 4 {
-			copy(point[:], imgPix[i:i+RGBI:i+RGBI])
-			nearestClusterIndex := NearestClusterIndex(clusters, point)
-			//add point to its nearest cluster
-			clusters[nearestClusterIndex].Append(point)
-			// check if the cluster for given point changed, or
-			//whether the given cluster is staying the same
-			if pointCenters[z] != nearestClusterIndex {
-				pointCenters[z] = nearestClusterIndex
-				changes++
-			}
-			z++
-		}
-
-		for clusterIndex := 0; clusterIndex < len(clusters); clusterIndex++ {
-			if len(clusters[clusterIndex].Points) == 0 {
-				// During the iterations, if any of the cluster centers has no
-				// data points associated with it, assign a random data point
-				// to it.
-				// Also see: http://user.ceng.metu.edu.tr/~tcan/ceng465_f1314/Schedule/KMeansEmpty.html
-				var randomIndex int
-				for {
-					// find a cluster with at least two data points, otherwise
-					// we're just emptying one cluster to fill another
-					randomIndex = rand.Intn(len(imgPix) - 4)
-					if len(clusters[pointCenters[(randomIndex/4)]].Points) > 1 {
-						break
-					}
-				}
-				var point [RGBI]byte
-				copy(point[:], imgPix[randomIndex:randomIndex+RGBI:randomIndex+RGBI])
-				clusters[clusterIndex].Append(point)
-				pointCenters[randomIndex/4] = clusterIndex
-
-				// Ensure that we always see at least one more iteration after.
-				// randomly assigning a data point to a cluster
-				changes = pixelCount
-			}
-		}
-
-		if changes > 0 {
-			RecenterClusters(clusters)
-		}
-		if i == iterationTreshold ||
-			changes < int(float64(pixelCount)*deltaThreshold) {
-			// fmt.Println("Aborting:", changes, int(float64(len(dataset))*m.TerminationThreshold))
-			break
-		}
-	}
-
-	return clusters
-}
 
 func KmeansPartition2(imgPix []uint8) [][3]float64 {
 	var numClusters = 16
@@ -168,9 +15,11 @@ func KmeansPartition2(imgPix []uint8) [][3]float64 {
 	numObjs := len(imgPix)
 	numPix := numObjs / 4
 
-	if numPix < numClusters {
-		numClusters = numPix - 1
-	}
+	// numClusters = numPix / 2
+
+	// if numPix < numClusters {
+	// 	numClusters = numPix - 1
+	// }
 
 	clusterSizes := make([]int, numClusters)
 	membership := make([]int, numPix)
@@ -193,50 +42,45 @@ func KmeansPartition2(imgPix []uint8) [][3]float64 {
 		clusters[i] = point
 	}
 
-	var errorc float64
-	var previousError float64
+	var (
+		errorc        float64
+		previousError float64
 
-	// file, err := os.Create("coords.txt")
-	// if err != nil {
-	// 	return nil
-	// }
-	// w := bufio.NewWriter(file)
+		mu sync.Mutex // guards balance
+
+	)
 	for ok := true; ok; ok = math.Abs(errorc-previousError) >= threshold {
 		errorc = 0.0
 		newClusters := make([][3]float64, numClusters)
 		newClusterSizes := make([]int, numClusters)
 
 		for i := 0; i < numObjs; i += 4 {
-			p := imgPix[i : i+RGBI : i+RGBI]
-			point := [3]float64{float64(p[0]), float64(p[1]), float64(p[2])}
+			go func(i int) {
+				p := imgPix[i : i+RGBI : i+RGBI]
+				point := [3]float64{float64(p[0]), float64(p[1]), float64(p[2])}
 
-			index := find_nearest_cluster2(numClusters, point, clusters)
-			fixedIndex := i / 4
-			if membership[fixedIndex] != index {
-				errorc += 1
-			}
+				index := find_nearest_cluster2(numClusters, point, clusters)
+				fixedIndex := i / 4
+				if membership[fixedIndex] != index {
+					mu.Lock()
+					errorc += 1
+					mu.Unlock()
+				}
+				mu.Lock()
+				membership[fixedIndex] = index
+				mu.Unlock()
 
-			// space := "  "
-			// if fixedIndex >= 10 {
-			// 	space = " "
-			// }
-			// if fixedIndex >= 100 {
-			// 	space = ""
-			// }
-			// fmt.Fprintln(w, fmt.Sprintf("%s%d %d %d %d", space, fixedIndex, point[0], point[1], point[2]))
-			// _, err = w.WriteString("ttt") //fmt.Sprintf("%d %v \n", fixedIndex, point)
-			// if err != nil {
-			// 	return nil
-			// }
-
-			membership[fixedIndex] = index
-			//update new cluster center
-			newClusterSizes[index]++
-			for j := 0; j < 3; j++ {
-				newClusters[index][j] += point[j]
-			}
+				//update new cluster center
+				newClusterSizes[index]++
+				for j := 0; j < 3; j++ {
+					mu.Lock()
+					newClusters[index][j] += point[j]
+					mu.Unlock()
+				}
+			}(i)
 		}
 
+		//MAIN
 		//average the sum and replace old cluster with new ones
 		for i := 0; i < numClusters; i++ {
 			size := newClusterSizes[i]
@@ -268,6 +112,15 @@ func euclid_dist_22(coord1 [3]float64, coord2 [3]float64) float64 {
 	}
 	return ans
 }
+func distance2(coord1 [3]float64, coord2 [3]float64) float64 {
+	var r float64
+	for i, v := range coord1 {
+		va := float64(v) - float64((coord2[i]))
+		r += math.Pow(float64(va), 2)
+	}
+	return r
+}
+
 func find_nearest_cluster2(numClusters int, object [3]float64, clusters [][3]float64) int {
 	index := 0
 	min_dist := euclid_dist_22(object, clusters[0])
