@@ -19,6 +19,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path"
@@ -229,21 +230,11 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 
 	const rgbaLen = 4
 
-	/////////////////////////////////////////////////////////////////
 	lenImgPix := len(imgPix)
-	const partitionsCount = 4
-	partitionsLen := lenImgPix / partitionsCount
+	partitionsCount := 4
+	partitionsLen := int(math.RoundToEven((float64(lenImgPix/rgbaLen) / float64(partitionsCount)))) * rgbaLen
 
-	lastStop := (lenImgPix) - partitionsLen
-	firstStop := partitionsLen * 2
-
-	left := imgPix[:partitionsLen]
-	third := imgPix[partitionsLen:firstStop]
-	forth := imgPix[firstStop:lastStop]
-	right := imgPix[lastStop:]
-	// partitionSteps := [][]uint8{third, forth, right}
-
-	partition := func(imgPix []uint8) <-chan map[int]int {
+	countPartition := func(imgPix []uint8) <-chan map[int]int {
 		uniqueColorsCh := make(chan map[int]int)
 		go func(imgPix []uint8) {
 			uniqueColors := make(map[int]int)
@@ -255,17 +246,18 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 		}(imgPix)
 		return uniqueColorsCh
 	}
-	mergeResults := func(cs ...<-chan map[int]int) <-chan map[int]int { //fanIn function
+	mergeResults := func(partitionData [][]byte) <-chan map[int]int { //fanIn function
 		out := make(chan map[int]int)
 		var wg sync.WaitGroup
-		wg.Add(len(cs))
-		for _, c := range cs {
+		wg.Add(len(partitionData))
+
+		for _, p := range partitionData {
 			go func(c <-chan map[int]int) {
 				for v := range c {
 					out <- v
 				}
 				wg.Done()
-			}(c)
+			}(countPartition(p))
 		}
 		go func() {
 			wg.Wait()
@@ -274,23 +266,21 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 		return out
 	}
 
-	// partitionCount := 4
+	partitionsData := make([][]byte, partitionsCount)
+	begining := 0
+	end := partitionsLen
+	for i := 0; i < (partitionsCount); i++ {
+		partitionsData[i] = imgPix[begining:end]
+		begining = end
+		end = end + partitionsLen
+		if end > lenImgPix {
+			end = lenImgPix
+		}
+	}
 
-	// res := partition(left)
-	// for i := 0; i < (partitionCount - 1); i++ {
-	// 	c := partition(partitionSteps[i])
-	// 	for k, v := range c {
-	// 		res[k] = res[k] + v
-	// 	}
-	// }
-
-	chn := mergeResults(partition(left), partition(third), partition(forth), partition(right))
-	// for n := range merge(partition(left), partition(third), partition(forth), partition(right)) {
-	// 	fmt.Printf("SS %v\n", n) // 4 then 9, or 9 then 4
-	// }
-
+	chn := mergeResults(partitionsData)
 	res := make(map[int]int)
-	for i := 0; i < 4; i++ {
+	for i := 0; i < partitionsCount; i++ {
 		for k, v := range <-chn {
 			res[k] = res[k] + v
 		}

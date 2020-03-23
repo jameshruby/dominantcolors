@@ -12,7 +12,9 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"runtime"
 	"testing"
+	"time"
 )
 
 //Using testing colors that shouldn't be broken by conversion
@@ -230,20 +232,22 @@ func generateTestImage(width int, height int, mode ImageGeneratorMode) (*image.R
 }
 
 //TODO FIX Commented out since the test is failing now, after change of imgGen function
-// func TestCorrectColorOutput(t *testing.T) {
-// 	imgWidth := 12
-// 	imgHeight := 12
-// 	testImage, _ := generateTestImage(imgWidth, imgHeight, SimpleTest)
-// 	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
-// 	colors := []color.Color{colorA, colorB, colorC}
-// 	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
+func TestCorrectColorOutput(t *testing.T) {
+	imgWidth := 12
+	imgHeight := 12
+	testImage, _ := generateTestImage(imgWidth, imgHeight, SimpleTest)
+	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
+	t.Logf("\n %v, %v, %v \n %v %v %v \n\n", colorA, colorB, colorC, dominantColors["yellow"], dominantColors["blue"], dominantColors["red"])
+	t.Fatalf("SHOW")
+	// colors := []color.Color{colorA, colorB, colorC}
+	// expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
 
-// 	for i := 0; i < len(dominantColors); i++ {
-// 		if colors[i] != expectedColors[i] {
-// 			t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
-// 		}
-// 	}
-// }
+	// for i := 0; i < len(dominantColors); i++ {
+	// 	if colors[i] != expectedColors[i] {
+	// 		t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
+	// 	}
+	// }
+}
 
 func TestNullPicture(t *testing.T) {
 	imgWidth := 0
@@ -333,6 +337,28 @@ func BenchmarkDominantColors(b *testing.B) {
 			})
 		}
 	}
+}
+
+// func TestThrowAway()
+
+func BenchmarkThrowaway(b *testing.B) {
+	runtime.GOMAXPROCS(4) //SET MAX CPUs
+	size := 3000
+	testImage, err := generateTestImage(size, size, WorstCase)
+	if err != nil {
+		b.Fatalf("%s", err)
+	}
+	b.Log("-- dominant colors\n")
+	b.ResetTimer()
+	b.ReportAllocs()
+	start := time.Now()
+	DominantColors(testImage, size, size)
+	fmt.Println(time.Since(start))
+
+	// // run the Fib function b.N times
+	// for n := 0; n < b.N; n++ {
+	//         Fib(10)
+	// }
 }
 
 func BenchmarkImageDownload(b *testing.B) {
