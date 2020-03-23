@@ -293,9 +293,21 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 		Value int
 	}
 	var colorCounterList []ColorCounter
+	var lastColor ColorCounter
 	for color, colorCount := range res {
-		colorCounterList = append(colorCounterList, ColorCounter{color, colorCount})
+		lastColor = ColorCounter{color, colorCount}
+		colorCounterList = append(colorCounterList, lastColor)
 	}
+
+	listLen := len(colorCounterList)
+	// guard for less colorfull images
+	const colorsCount = 3
+	if listLen <= colorsCount {
+		for i := 0; i < (colorsCount - listLen); i++ {
+			colorCounterList = append(colorCounterList, lastColor)
+		}
+	}
+
 	sort.Slice(colorCounterList, func(i, j int) bool {
 		return colorCounterList[i].Value > colorCounterList[j].Value
 	})
@@ -324,29 +336,14 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 	// 		}
 	// 	}
 	// }
-	//
-	// //guard for less colorfull images
+
+	//guard for less colorfull images
 	// if bCount == 0 {
 	// 	cB = cA
 	// }
 	// if cCount == 0 {
 	// 	cC = cA
 	// }
-	//
-	// fmt.Println(res)
-	// var ccA, ccB, ccC [rgbLen]byte
-	// return ccA, ccB, ccC, nil
-	//
-	// guard for less colorfull images
-	listLen := len(colorCounterList)
-	switch {
-	case listLen < 2:
-		return IntToRGB(colorCounterList[0].Key), IntToRGB(colorCounterList[0].Key), IntToRGB(colorCounterList[0].Key), nil
-	case listLen < 3:
-		return IntToRGB(colorCounterList[0].Key), IntToRGB(colorCounterList[1].Key), IntToRGB(colorCounterList[1].Key), nil
-	default:
-		return IntToRGB(colorCounterList[0].Key), IntToRGB(colorCounterList[1].Key), IntToRGB(colorCounterList[2].Key), nil
-	}
 
 	return IntToRGB(colorCounterList[0].Key), IntToRGB(colorCounterList[1].Key), IntToRGB(colorCounterList[2].Key), nil
 }
