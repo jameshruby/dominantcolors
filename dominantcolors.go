@@ -121,15 +121,7 @@ func RGBToIntSlice(color []byte) int {
 	rgb := ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
 	return rgb
 }
-func RGBToInt(color [3]byte) int {
-	r, g, b := int(color[0]), int(color[1]), int(color[2])
-	// rgb := r
-	// rgb = (rgb << 8) + g
-	// rgb = (rgb << 8) + b
 
-	rgb := ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
-	return rgb
-}
 func IntToRGB(rgb int) [3]byte {
 	r := (rgb >> 16) & 0xFF
 	g := (rgb >> 8) & 0xFF
@@ -137,20 +129,6 @@ func IntToRGB(rgb int) [3]byte {
 	return [3]byte{byte(r), byte(g), byte(b)}
 }
 
-func DownloadAllImagesStub(linksFile string) <-chan imageInfo {
-	chImgInfo := make(chan imageInfo)
-	linksScanner, fileHandle, _ := OpenTheList(linksFile)
-	// HandleError(err, "couldn't open the links list")
-	go func() {
-		for linksScanner.Scan() {
-			line := linksScanner.Text()
-			chImgInfo <- imageInfo{line, "LINK_" + line}
-		}
-		close(chImgInfo)
-		fileHandle.Close()
-	}()
-	return chImgInfo
-}
 func DownloadAllImages(linksFile string) <-chan imageInfo {
 	linksScanner, fileHandle, _ := OpenTheList(linksFile)
 	chImgInfo := make(chan imageInfo, BUFFER_SIZE)
