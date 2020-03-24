@@ -16,7 +16,7 @@ func main() {
 	// af = "c:/Users/winds/Pictures/the-starry-night-vincent-van-gogh.jpg"
 
 	// // GetImageFromJpeg(af)
-	// image, Dx, Dy, _ := GetImageFromJpeg(af)
+	image, Dx, Dy, _ := GetRGBAImage(af)
 	start := time.Now()
 	colorA, colorB, colorC, _ := DominantColors(image, Dx, Dy)
 	fmt.Println(time.Since(start))
