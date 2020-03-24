@@ -24,9 +24,12 @@ import (
 	"net/http"
 	"os"
 	"path"
+<<<<<<< HEAD
 	"sort"
 	"strconv"
 	"time"
+=======
+>>>>>>> parent of b989082... Prefix added when creating dowloaded image.
 )
 
 const BUFFER_SIZE = 50
@@ -170,8 +173,7 @@ func DownloadImage(url string) (string, error) {
 	}
 	defer response.Body.Close()
 
-	timePrefix := strconv.FormatInt(int64(time.Now().UnixNano()), 10)
-	filename := timePrefix + "_" + path.Base(url)
+	filename := path.Base(url)
 	file, err := os.Create(filename)
 	if err != nil {
 		return "", err
