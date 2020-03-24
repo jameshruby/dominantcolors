@@ -3,121 +3,24 @@ package main
 import (
 	"fmt"
 	"runtime"
+	"time"
 )
-
-// "time"
-
-//  _ "net/http/pprof"
-
-// urls := []string{"http://google.com"}
-// 	for _, url := range urls {
-// 		resp, err := http.Get(url)
-// 		if err != nil {
-// 			fmt.Printf("%v\n", err)
-// 			os.Exit(1)
-// 		}
-// 		b, err := ioutil.ReadAll(resp.Body)
-// 		resp.Body.Close()
-// 		if err != nil {
-// 			fmt.Printf("%v\n", err)
-// 			os.Exit(1)
-// 		}
-// 		fmt.Printf("%s", b)
-
-// func fetch(url string, ch chan<- string) {
-// 	start := time.Now()
-// 	resp, err := http.Get(url)
-// 	if err != nil {
-// 		ch <- fmt.Srintf(err)
-// 		return
-// 	}
-// 	nbytes, err := io.Copy(ioutil.Discard, resp.Body)
-// 	resp.Body.Close()
-// 	if err != nil {
-// 		ch <- fmt.Srintf("while reading %s: %v\n", url, err)
-// 		return
-// 	}
-// 	secs := time.Since(start).Seconds()
-// 	ch <- fmt.Sprintf("%.2fs %7d %s", secs, nbytes, url)
-// }
 
 func main() {
 
-	cpus := runtime.NumCPU()
-	fmt.Println(cpus)
-	// var d clusters.Observations
+	runtime.GOMAXPROCS(1) //SET MAX CPUs
+	
+	af := "./testData/test2.jpg"
+	// af = "./testData/bw2.jpg"
+	af = "c:/Users/winds/Pictures/Van_Gogh_-_Starry_Night-11000px.jpg"
+	// af = "c:/Users/winds/Pictures/the-starry-night-vincent-van-gogh.jpg"
 
-	// objects := [][3]float64{
-	// 	{1, 1, 1},
-	// 	{1, 1, 1},
-	// 	{1, 1, 1},
-	// 	{1, 1, 1},
-	// 	{2, 3, 15},
-	// 	{1, 1, 1},
-	// 	{2, 2, 2},
-	// 	{1, 1, 1},
-	// 	{2, 2, 2},
-	// }
-	// for _, pix := range objects {
-	// 	d = append(d, clusters.Coordinates{
-	// 		float64(pix[0]),
-	// 		float64(pix[1]),
-	// 		float64(pix[2]),
-	// 	})
-	// }
-
-	// km := kmeans.New()
-	// clusters, _ := km.Partition(d, 6)
-	// fmt.Println(clusters)
-
-	// objects := [][3]uint8{
-	// 	{15, 34, 250},
-	// 	{15, 34, 250},
-	// 	{1, 1, 1},
-	// 	{2, 2, 2},
-	// 	{2, 3, 15},
-	// 	{15, 34, 250},
-	// 	{2, 2, 2},
-	// 	{1, 1, 1},
-	// 	{2, 2, 2},
-	// }
-
-	objectsPix := []uint8{
-		15, 34, 250, 255,
-		15, 34, 250, 255,
-		1, 1, 1, 255,
-		2, 2, 2, 255,
-		2, 3, 15, 255,
-		15, 34, 250, 255,
-		2, 2, 2, 255,
-		1, 1, 1, 255,
-		2, 2, 2, 255,
-	}
-
-	// objects := [][3]float64{
-	// 	{1, 1, 1},
-	// 	{15, 34, 250},
-	// 	{1, 1, 1},
-	// 	{2, 2, 2},
-	// 	{2, 3, 15},
-	// 	{15, 34, 250},
-	// 	{2, 2, 2},
-	// 	{1, 1, 1},
-	// 	{1, 1, 1},
-	// }
-
-	KmeansPartition2(objectsPix)
-	// fmt.Println(acolor)
-
-	// icolor := RGBToInt(dominantColorsByte["yellow"]) //13356134
-	// acolor := IntToRGB(icolor)
-	// fmt.Println(acolor)
-
-	// af := "D.jpg"
 	// // GetImageFromJpeg(af)
 	// image, Dx, Dy, _ := GetImageFromJpeg(af)
-	// colorA, colorB, colorC, _ := DominantColors(image, Dx, Dy)
-	// fmt.Printf("%v %v %v", colorA, colorB, colorC)
+	start := time.Now()
+	colorA, colorB, colorC, _ := DominantColors(image, Dx, Dy)
+	fmt.Println(time.Since(start))
+	fmt.Printf("%v %v %v", colorA, colorB, colorC)
 
 	// f, err := os.Open(af)
 	// if err != nil {
