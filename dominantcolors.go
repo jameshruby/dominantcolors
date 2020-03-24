@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -231,7 +230,7 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 	const rgbaLen = 4
 
 	lenImgPix := len(imgPix)
-	partitionsCount := 4
+	partitionsCount := 1
 	partitionsLen := int(math.RoundToEven((float64(lenImgPix/rgbaLen) / float64(partitionsCount)))) * rgbaLen
 
 	countPartition := func(imgPix []uint8) <-chan map[int]int {
@@ -277,73 +276,63 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 			end = lenImgPix
 		}
 	}
-
+	//run the defs
 	chn := mergeResults(partitionsData)
 	res := make(map[int]int)
+	
+	var lastCount, lastColor int
 	for i := 0; i < partitionsCount; i++ {
-		for k, v := range <-chn {
-			res[k] = res[k] + v
+		for lastColor, lastCount = range <-chn {
+			res[lastColor] = res[lastColor] + lastCount
 		}
 	}
 
-	//////////////////////////////////////////////////////////////
-	// FINAL
-	type ColorCounter struct {
-		Key   int
-		Value int
-	}
-	var colorCounterList []ColorCounter
-	var lastColor ColorCounter
-	for color, colorCount := range res {
-		lastColor = ColorCounter{color, colorCount}
-		colorCounterList = append(colorCounterList, lastColor)
-	}
+	clen := len(res)
+	rcolors := make([]int, 3)
+	if clen >= 3 {
+		// starta := time.Now()
+		var cA, cB, cC int
+		var aCount, bCount, cCount int
+		rcounts := []int{cA, cB, cC}
+		rcolors = []int{aCount, bCount, cCount}
 
-	listLen := len(colorCounterList)
-	// guard for less colorfull images
-	const colorsCount = 3
-	if listLen <= colorsCount {
-		for i := 0; i < (colorsCount - listLen); i++ {
-			colorCounterList = append(colorCounterList, lastColor)
+		for pixel, colorOccurences := range res {
+			for i := 0; i < 3; i++ {
+				if colorOccurences > rcounts[i] {
+					nextI := i + 1
+					if nextI < 3 {
+						nextNextI := nextI + 1
+						if nextNextI < 3 {
+							rcounts[nextNextI] = rcounts[nextI]
+							rcolors[nextNextI] = rcolors[nextI]
+						}
+						rcounts[nextI] = rcounts[i]
+						rcolors[nextI] = rcolors[i]
+					}
+					rcounts[i] = colorOccurences
+					rcolors[i] = pixel
+					break
+				}
+			}
 		}
-	}
-
-	sort.Slice(colorCounterList, func(i, j int) bool {
-		return colorCounterList[i].Value > colorCounterList[j].Value
-	})
-	//END
-
-	// var cA, cB, cC int
-	// var aCount, bCount, cCount int
-	// rcounts := []int{cA, cB, cC}
-	// rcolors := []int{aCount, bCount, cCount}
-	// for pixel, colorOccurences := range res {
-	// 	for i := 0; i < 3; i++ {
-	// 		if colorOccurences > rcounts[i] {
-	// 			nextI := i + 1
-	// 			if nextI < 3 {
-	// 				nextNextI := nextI + 1
-	// 				if nextNextI < 3 {
-	// 					rcounts[nextNextI] = rcounts[nextI]
-	// 					rcolors[nextNextI] = rcolors[nextI]
-	// 				}
-	// 				rcounts[nextI] = rcounts[i]
-	// 				rcolors[nextI] = rcolors[i]
-	// 			}
-	// 			rcounts[i] = colorOccurences
-	// 			rcolors[i] = pixel
-	// 			break
-	// 		}
-	// 	}
-	// }
-
-	//guard for less colorfull images
-	// if bCount == 0 {
-	// 	cB = cA
-	// }
-	// if cCount == 0 {
-	// 	cC = cA
-	// }
-
-	return IntToRGB(colorCounterList[0].Key), IntToRGB(colorCounterList[1].Key), IntToRGB(colorCounterList[2].Key), nil
+		// fmt.Println("A ", time.Since(starta))
+	}	
+	if clen == 2 {
+		rcolors[0] = lastColor
+		for k, v := range res {
+			if v > lastCount {
+				rcolors[0], rcolors[1] = k, rcolors[0]
+			} 
+			if v < lastCount {
+				rcolors[1] = k
+			}
+		}
+		rcolors[2] = rcolors[1]
+	}	
+	if clen == 1 {
+		for i := clen-1; i < 3; i++ {
+			rcolors[i] = lastColor
+		}
+	} 
+	return IntToRGB(rcolors[0]), IntToRGB(rcolors[1]), IntToRGB(rcolors[2]), nil
 }
