@@ -10,7 +10,6 @@ WE STILL HAVE CPU SPIKES....SO THE GOAL SHOULD REALLY BE JUST TO GET RID OF THEM
 
 import (
 	"bufio"
-	"clusters"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -20,16 +19,13 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"kmeans"
+	"math"
 	"net/http"
 	"os"
 	"path"
-<<<<<<< HEAD
-	"sort"
 	"strconv"
+	"sync"
 	"time"
-=======
->>>>>>> parent of b989082... Prefix added when creating dowloaded image.
 )
 
 const BUFFER_SIZE = 50
@@ -116,6 +112,15 @@ type imageInfo struct {
 }
 
 // const HEX16 := 0xFF
+func RGBToIntSlice(color []byte) int {
+	r, g, b := int(color[0]), int(color[1]), int(color[2])
+	// rgb := r
+	// rgb = (rgb << 8) + g
+	// rgb = (rgb << 8) + b
+
+	rgb := ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
+	return rgb
+}
 func RGBToInt(color [3]byte) int {
 	r, g, b := int(color[0]), int(color[1]), int(color[2])
 	// rgb := r
@@ -173,7 +178,8 @@ func DownloadImage(url string) (string, error) {
 	}
 	defer response.Body.Close()
 
-	filename := path.Base(url)
+	timePrefix := strconv.FormatInt(int64(time.Now().UnixNano()), 10)
+	filename := timePrefix + "_" + path.Base(url)
 	file, err := os.Create(filename)
 	if err != nil {
 		return "", err
@@ -212,108 +218,121 @@ func GetRGBAImage(imagefilename string) (img *image.RGBA, Dx int, Dy int, err er
 	draw.Draw(rgbImage, rgbImage.Bounds(), imageData, imageBounds.Min, draw.Src)
 	return rgbImage, imageBounds.Dx(), imageBounds.Dy(), nil
 }
-func DominantColorsA(image *image.RGBA, width int, height int) ([rgbLen]byte, [rgbLen]byte, [rgbLen]byte, error) {
-	if width == 0 || height == 0 {
-		var ccA, ccB, ccC [rgbLen]byte
-		return ccA, ccB, ccC, errors.New("image size was 0")
-	}
-	//build a map of unique colors and its sum, pix is array with colors just stacked behind each other
-	imgPix := image.Pix
-	// uniqueColors := make(map[int]int)
-	// var cA, cB, cC int
-	// var aCount, bCount, cCount int
-	const rgbaLen = 4
-
-	var d clusters.Observations
-
-	for i := 0; i < len(imgPix); i += rgbaLen {
-		var pix [rgbLen]byte
-		copy(pix[:], imgPix[i:i+rgbLen:i+rgbLen]) //getting RGBA [125][126][243][255] [100][2][56][255]
-
-		d = append(d, clusters.Coordinates{
-			float64(pix[0]),
-			float64(pix[1]),
-			float64(pix[2]),
-		})
-
-		// pixel := RGBToInt(pix)
-
-		// colorOccurences := uniqueColors[pixel] + 1
-		// switch {
-		// case colorOccurences > aCount:
-		// 	aCount = colorOccurences
-		// 	cA = pixel
-		// case colorOccurences > bCount:
-		// 	bCount = colorOccurences
-		// 	cB = pixel
-		// case colorOccurences > cCount:
-		// 	cCount = colorOccurences
-		// 	cC = pixel
-		// }
-		// uniqueColors[pixel] = colorOccurences
-	}
-
-	//TEST KMEANS
-	// set up a random two-dimensional data set (float64 values between 0.0 and 1.0)
-
-	// Partition the data points into 16 clusters
-	km := kmeans.New()
-	clusters, _ := km.Partition(d, 16)
-
-	sort.Slice(clusters, func(i, j int) bool {
-		return len(clusters[i].Observations) > len(clusters[j].Observations)
-	})
-
-	// crA := clusters[0].Observations[0].Coordinates()
-
-	// fmt.Printf("Matching data points: %+v %v \n\n", crA, crA[0])
-
-	//guard for less colorfull images
-	// if bCount == 0 {
-	// 	cB = cA
-	// }
-	// if cCount == 0 {
-	// 	cC = cA
-	// }
-	//return IntToRGB(cA), IntToRGB(cB), IntToRGB(cC), nil
-
-	var coords [3][3]byte
-	for i := 0; i < 3; i++ {
-		var coordsw [3]byte
-		for i, c := range clusters[i].Observations[0].Coordinates() {
-			coordsw[i] = byte(c)
-		}
-		coords[i] = coordsw
-	}
-
-	return coords[0], coords[1], coords[2], nil
-}
 
 func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rgbLen]byte, [rgbLen]byte, error) {
 	if width == 0 || height == 0 {
 		var ccA, ccB, ccC [rgbLen]byte
 		return ccA, ccB, ccC, errors.New("image size was 0")
 	}
+	//build a map of unique colors and its sum, pix is array with colors just stacked behind each other
+	imgPix := image.Pix
 
-	clusters := KmeansPartition2(image.Pix)
-	// fmt.Println("", clusters)
-	// const clusterCount = 16
-	// clusters := KmeansPartition(image.Pix, clusterCount)
-	// sort.Slice(clusters, func(i, j int) bool {
-	// 	return len(clusters[i].Points) > len(clusters[j].Points)
-	// })
+	const rgbaLen = 4
 
-	// if bCount == 0 {
-	// 	cB = cA
-	// }
-	// if cCount == 0 {
-	// 	cC = cA
-	// }
-	// var ccA, ccB, ccC [rgbLen]byte
-	// return ccA, ccB, ccC, nil
-	// return clusters[0].Points[0], clusters[1].Points[0], clusters[2].Points[0], nil
+	lenImgPix := len(imgPix)
+	partitionsCount := 1
+	partitionsLen := int(math.RoundToEven((float64(lenImgPix/rgbaLen) / float64(partitionsCount)))) * rgbaLen
 
-	var ccA, ccB, ccC = clusters[0], clusters[1], clusters[2]
+	countPartition := func(imgPix []uint8) <-chan map[int]int {
+		uniqueColorsCh := make(chan map[int]int)
+		go func(imgPix []uint8) {
+			uniqueColors := make(map[int]int)
+			for i := 0; i < len(imgPix); i += rgbaLen {
+				pixel := RGBToIntSlice(imgPix[i : i+4 : i+4])
+				uniqueColors[pixel] = uniqueColors[pixel] + 1
+			}
+			uniqueColorsCh <- uniqueColors
+		}(imgPix)
+		return uniqueColorsCh
+	}
+	mergeResults := func(partitionData [][]byte) <-chan map[int]int { //fanIn function
+		out := make(chan map[int]int)
+		var wg sync.WaitGroup
+		wg.Add(len(partitionData))
 
-	return [rgbLen]byte{byte(ccA[0]), byte(ccA[1]), byte(ccA[2])}, [rgbLen]byte{byte(ccB[0]), byte(ccB[1]), byte(ccB[2])}, [rgbLen]byte{byte(ccC[0]), byte(ccC[1]), byte(ccC[2])}, nil
+		for _, p := range partitionData {
+			go func(c <-chan map[int]int) {
+				for v := range c {
+					out <- v
+				}
+				wg.Done()
+			}(countPartition(p))
+		}
+		go func() {
+			wg.Wait()
+			close(out)
+		}()
+		return out
+	}
+
+	partitionsData := make([][]byte, partitionsCount)
+	begining := 0
+	end := partitionsLen
+	for i := 0; i < (partitionsCount); i++ {
+		partitionsData[i] = imgPix[begining:end]
+		begining = end
+		end = end + partitionsLen
+		if end > lenImgPix {
+			end = lenImgPix
+		}
+	}
+	//run the defs
+	chn := mergeResults(partitionsData)
+	res := make(map[int]int)
+	
+	var lastCount, lastColor int
+	for i := 0; i < partitionsCount; i++ {
+		for lastColor, lastCount = range <-chn {
+			res[lastColor] = res[lastColor] + lastCount
+		}
+	}
+
+	clen := len(res)
+	rcolors := make([]int, 3)
+	if clen >= 3 {
+		// starta := time.Now()
+		var cA, cB, cC int
+		var aCount, bCount, cCount int
+		rcounts := []int{cA, cB, cC}
+		rcolors = []int{aCount, bCount, cCount}
+
+		for pixel, colorOccurences := range res {
+			for i := 0; i < 3; i++ {
+				if colorOccurences > rcounts[i] {
+					nextI := i + 1
+					if nextI < 3 {
+						nextNextI := nextI + 1
+						if nextNextI < 3 {
+							rcounts[nextNextI] = rcounts[nextI]
+							rcolors[nextNextI] = rcolors[nextI]
+						}
+						rcounts[nextI] = rcounts[i]
+						rcolors[nextI] = rcolors[i]
+					}
+					rcounts[i] = colorOccurences
+					rcolors[i] = pixel
+					break
+				}
+			}
+		}
+		// fmt.Println("A ", time.Since(starta))
+	}	
+	if clen == 2 {
+		rcolors[0] = lastColor
+		for k, v := range res {
+			if v > lastCount {
+				rcolors[0], rcolors[1] = k, rcolors[0]
+			} 
+			if v < lastCount {
+				rcolors[1] = k
+			}
+		}
+		rcolors[2] = rcolors[1]
+	}	
+	if clen == 1 {
+		for i := clen-1; i < 3; i++ {
+			rcolors[i] = lastColor
+		}
+	} 
+	return IntToRGB(rcolors[0]), IntToRGB(rcolors[1]), IntToRGB(rcolors[2]), nil
 }

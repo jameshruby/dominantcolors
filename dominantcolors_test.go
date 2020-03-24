@@ -12,7 +12,9 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"runtime"
 	"testing"
+	"time"
 )
 
 //Using testing colors that shouldn't be broken by conversion
@@ -340,15 +342,23 @@ func BenchmarkDominantColors(b *testing.B) {
 // func TestThrowAway()
 
 func BenchmarkThrowaway(b *testing.B) {
+	runtime.GOMAXPROCS(4) //SET MAX CPUs
 	size := 3000
 	testImage, err := generateTestImage(size, size, WorstCase)
 	if err != nil {
 		b.Fatalf("%s", err)
 	}
-	b.Log("-- dominant colors")
+	b.Log("-- dominant colors\n")
 	b.ResetTimer()
 	b.ReportAllocs()
+	start := time.Now()
 	DominantColors(testImage, size, size)
+	fmt.Println(time.Since(start))
+
+	// // run the Fib function b.N times
+	// for n := 0; n < b.N; n++ {
+	//         Fib(10)
+	// }
 }
 
 func BenchmarkImageDownload(b *testing.B) {
@@ -359,34 +369,7 @@ func BenchmarkImageDownload(b *testing.B) {
 	}
 }
 
-// func TestKmeans(t *testing.T) {
-// 	// objects := [][3]uint8{
-// 	// 	{15, 34, 250},
-// 	// 	{15, 34, 250},
-// 	// 	{1, 1, 1},
-// 	// 	{2, 2, 2},
-// 	// 	{2, 3, 15},
-// 	// 	{15, 34, 250},
-// 	// 	{2, 2, 2},
-// 	// 	{1, 1, 1},
-// 	// 	{2, 2, 2},
-// 	// }
-// 	objectsPix := []uint8{
-// 		15, 34, 250, 255,
-// 		15, 34, 250, 255,
-// 		1, 1, 1, 255,
-// 		2, 2, 2, 255,
-// 		2, 3, 15, 255,
-// 		15, 34, 250, 255,
-// 		2, 2, 2, 255,
-// 		1, 1, 1, 255,
-// 		2, 2, 2, 255,
-// 	}
-// 	expectedColors := [][3]uint8{{2, 2, 4}, {15, 34, 79}, {15, 34, 250}}
-// 	res := KmeansPartition2(objectsPix)
-// 	for i := 0; i < len(res); i++ {
-// 		if res[i] != expectedColors[i] {
-// 			t.Errorf("Dominant color is wrong, actual: %v, expected: %v.", res[i], expectedColors[i])
-// 		}
-// 	}
+// func TestImageDownload(t *testing.T) {
+// 	f := DownloadAllImages("./testData/input.txt")
+// 	t.Logf("%v", f)
 // }
