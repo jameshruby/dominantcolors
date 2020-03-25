@@ -212,37 +212,26 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 		var ccA, ccB, ccC [rgbLen]byte
 		return ccA, ccB, ccC, errors.New("image size was 0")
 	}
-	//build a map of unique colors and its sum, pix is array with colors just stacked behind each other
-	imgPix := image.Pix
-	uniqueColors := make(map[int]int)
-	var cA, cB, cC int
-	var aCount, bCount, cCount int
-	const rgbaLen = 4
-	for i := 0; i < len(imgPix); i += rgbaLen {
-		var pix [rgbLen]byte
-		copy(pix[:], imgPix[i:i+rgbLen:i+rgbLen]) //getting RGBA [125][126][243][255] [100][2][56][255]
-		pixel := RGBToInt(pix) 
-		
-		colorOccurences := uniqueColors[pixel] + 1
-		switch {
-		case colorOccurences > aCount:
-			aCount = colorOccurences
-			cA = pixel
-		case colorOccurences > bCount:
-			bCount = colorOccurences
-			cB = pixel
-		case colorOccurences > cCount:
-			cCount = colorOccurences
-			cC = pixel
-		}
-		uniqueColors[pixel] = colorOccurences
-	}
-	//guard for less colorfull images
-	if bCount == 0 {
-		cB = cA
-	}
-	if cCount == 0 {
-		cC = cA
-	}
-	return IntToRGB(cA), IntToRGB(cB), IntToRGB(cC), nil
+
+	clusters := KmeansPartition(image.Pix)
+	// fmt.Println("", clusters)
+	// const clusterCount = 16
+	// clusters := KmeansPartition(image.Pix, clusterCount)
+	// sort.Slice(clusters, func(i, j int) bool {
+	// 	return len(clusters[i].Points) > len(clusters[j].Points)
+	// })
+
+	// if bCount == 0 {
+	// 	cB = cA
+	// }
+	// if cCount == 0 {
+	// 	cC = cA
+	// }
+	// var ccA, ccB, ccC [rgbLen]byte
+	// return ccA, ccB, ccC, nil
+	// return clusters[0].Points[0], clusters[1].Points[0], clusters[2].Points[0], nil
+
+	var ccA, ccB, ccC = clusters[0], clusters[1], clusters[2]
+
+	return [rgbLen]byte{byte(ccA[0]), byte(ccA[1]), byte(ccA[2])}, [rgbLen]byte{byte(ccB[0]), byte(ccB[1]), byte(ccB[2])}, [rgbLen]byte{byte(ccC[0]), byte(ccC[1]), byte(ccC[2])}, nil
 }
