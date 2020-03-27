@@ -1,13 +1,5 @@
 package main
 
-/*
-EXECUTION TIMES DOESNT MATTER AS MUCH AS OUR ABILLITY TO USE
-RESOURCES
-IT CAN TAKE SECONDS. THERES NO POINT IN SPENDIND AGES ON OBSSESING WITH SPEED
-HOW TO MAKE PIPELINE MORE EFICIENT ?
-WE STILL HAVE CPU SPIKES....SO THE GOAL SHOULD REALLY BE JUST TO GET RID OF THEM
-*/
-
 import (
 	"bufio"
 	"encoding/csv"
@@ -58,7 +50,7 @@ func saveEverythingToCSV(st <-chan [4]string) {
 }
 
 func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) <-chan [4]string {
-	out := make(chan [4]string, 10) //BUFFER_SIZE
+	out := make(chan [4]string, BUFFER_SIZE)
 	go func() {
 		for imgInfo := range chImgInfo {
 			// fmt.Println("-- opening the image " + imgInfo.filename)
@@ -111,13 +103,8 @@ type imageInfo struct {
 	link     string
 }
 
-// const HEX16 := 0xFF
 func RGBToIntSlice(color []byte) int {
 	r, g, b := int(color[0]), int(color[1]), int(color[2])
-	// rgb := r
-	// rgb = (rgb << 8) + g
-	// rgb = (rgb << 8) + b
-
 	rgb := ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
 	return rgb
 }
@@ -140,7 +127,7 @@ func DownloadAllImages(linksFile string) <-chan imageInfo {
 		for linksScanner.Scan() {
 			url := linksScanner.Text()
 			filename, err := DownloadImage(url)
-			HandleError(err, "failed to download tjhe file")
+			HandleError(err, "failed to download the file")
 			chImgInfo <- imageInfo{filename, url}
 		}
 		close(chImgInfo)
@@ -257,7 +244,7 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 	//run the defs
 	chn := mergeResults(partitionsData)
 	res := make(map[int]int)
-	
+
 	var lastCount, lastColor int
 	for i := 0; i < partitionsCount; i++ {
 		for lastColor, lastCount = range <-chn {
@@ -294,23 +281,23 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 			}
 		}
 		// fmt.Println("A ", time.Since(starta))
-	}	
+	}
 	if clen == 2 {
 		rcolors[0] = lastColor
 		for k, v := range res {
 			if v > lastCount {
 				rcolors[0], rcolors[1] = k, rcolors[0]
-			} 
+			}
 			if v < lastCount {
 				rcolors[1] = k
 			}
 		}
 		rcolors[2] = rcolors[1]
-	}	
+	}
 	if clen == 1 {
-		for i := clen-1; i < 3; i++ {
+		for i := clen - 1; i < 3; i++ {
 			rcolors[i] = lastColor
 		}
-	} 
+	}
 	return IntToRGB(rcolors[0]), IntToRGB(rcolors[1]), IntToRGB(rcolors[2]), nil
 }
