@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-const BUFFER_SIZE = 50
+const BUFFER_SIZE = PROC_COUNT
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 	chImgInfo := DownloadAllImages(urlListFile)
@@ -40,7 +40,7 @@ func saveEverythingToCSV(st <-chan [4]string) {
 	// go func() {
 	for line := range st {
 		err = writerCSV.Write(line[:])
-		// fmt.Printf("%v %v %v %v \n", line[0], line[1], line[2], line[3])
+		fmt.Println("-- adding to CSV[", line[0], "]")
 		// HandleError(err, "CSV writer failed")
 	}
 	writerCSV.Flush()
@@ -53,13 +53,13 @@ func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) <-chan [4]string {
 	out := make(chan [4]string, BUFFER_SIZE)
 	go func() {
 		for imgInfo := range chImgInfo {
-			// fmt.Println("-- opening the image " + imgInfo.filename)
+			fmt.Println("-- opening the image " + imgInfo.filename)
 			image, Dx, Dy, err := GetRGBAImage(imgInfo.filename)
-			// fmt.Println("-- opening the image DONE")
+			fmt.Println("-- opening the image DONE")
 			HandleError(err, "failed to process image "+imgInfo.filename)
-			// fmt.Println("-- dominant colors " + imgInfo.filename)
+			fmt.Println("-- dominant colors " + imgInfo.filename)
 			colorA, colorB, colorC, err := DominantColors(image, Dx, Dy)
-			// fmt.Println("-- dominant colors DONE")
+			fmt.Println("-- dominant colors DONE")
 			HandleError(err, "")
 			out <- [4]string{imgInfo.link, ColorToRGBHexString(colorA), ColorToRGBHexString(colorB), ColorToRGBHexString(colorC)}
 		}
@@ -136,7 +136,7 @@ func DownloadAllImages(linksFile string) <-chan imageInfo {
 	return chImgInfo
 }
 func DownloadImage(url string) (string, error) {
-	// fmt.Println("-- downloading " + url)
+	fmt.Println("-- downloading " + url)
 	response, err := http.Get(url)
 	if err != nil {
 		return "", err
@@ -155,7 +155,7 @@ func DownloadImage(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// fmt.Println("-- downloading FINISHED")
+	fmt.Println("-- downloading FINISHED")
 	return filename, nil
 }
 
@@ -195,7 +195,7 @@ func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rg
 	const rgbaLen = 4
 
 	lenImgPix := len(imgPix)
-	partitionsCount := 1
+	partitionsCount := PROC_COUNT
 	partitionsLen := int(math.RoundToEven((float64(lenImgPix/rgbaLen) / float64(partitionsCount)))) * rgbaLen
 
 	countPartition := func(imgPix []uint8) <-chan map[int]int {
