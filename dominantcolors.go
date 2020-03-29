@@ -24,59 +24,83 @@ const BUFFER_SIZE = PROC_COUNT
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 	chImgInfo := DownloadAllImages(urlListFile)
-	////get all colors
-	st := DominantColorsFromRGBAImage(chImgInfo)
-	saveEverythingToCSV(st)
+	st, chErr := DominantColorsFromRGBAImage(chImgInfo)
+	err := saveEverythingToCSV(st, chErr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
 }
 
 //TODO not sure which approach will work better with goroutines/ structures vs channel/slice merge
-func saveEverythingToCSV(st <-chan [4]string) {
+func saveEverythingToCSV(st <-chan [4]string, errors <-chan error) error {
 	//create CSV file,
 	csvFilename := "huhu.csv"
 	outputCSV, err := os.Create(csvFilename)
-	HandleError(err, "failed creating CSV file")
+	if err != nil {
+		return fmt.Errorf("failed creating  CSV file: %v", err)
+	}
 	writerCSV := csv.NewWriter(outputCSV)
 	//TODO can this run concurrently too ?
 	// go func() {
-	for line := range st {
-		err = writerCSV.Write(line[:])
-		fmt.Println("-- adding to CSV[", line[0], "]")
-		// HandleError(err, "CSV writer failed")
+	// for line := range st {
+	for {
+
+		select {
+		case err := <-errors:
+			return fmt.Errorf("CSV writer failed: %v", err)
+		case line := <-st:
+			err = writerCSV.Write(line[:])
+			if err != nil {
+				return err
+			}
+			fmt.Println("-- adding to CSV[", line[0], "]")
+		}
+
+		//TODO FIX if this errs the channel stays undrained
+		// if err != nil {
+		// 	return err
+		// }
 	}
+
 	writerCSV.Flush()
-	outputCSV.Close()
+	err = outputCSV.Close()
+	if err != nil {
+		return err
+	}
 	// }()
-	// HandleError(err, "failed to close CSV file")
+	return nil
 }
 
-func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) <-chan [4]string {
+func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) (<-chan [4]string, <-chan error) {
 	out := make(chan [4]string, BUFFER_SIZE)
+	errors := make(chan error, 0)
 	go func() {
-		for imgInfo := range chImgInfo {
+		for imgInfo := range chImgInfo { //TODO better goroutines handling
+			if imgInfo.err != nil {
+				errors <- fmt.Errorf("failed to download given image: %v", imgInfo.err)
+				return
+			}
 			fmt.Println("-- opening the image " + imgInfo.filename)
 			image, Dx, Dy, err := GetRGBAImage(imgInfo.filename)
+			if err != nil {
+				errors <- fmt.Errorf("failed to open the image[%s]: %v", imgInfo.filename, err)
+				return
+			}
 			fmt.Println("-- opening the image DONE")
-			HandleError(err, "failed to process image "+imgInfo.filename)
 			fmt.Println("-- dominant colors " + imgInfo.filename)
 			colorA, colorB, colorC, err := DominantColors(image, Dx, Dy)
-			fmt.Println("-- dominant colors DONE")
-			HandleError(err, "")
+			if err != nil {
+				errors <- fmt.Errorf("failed to get dominantColors[%s]: %v", imgInfo.filename, err)
+				return
+			}
 			out <- [4]string{imgInfo.link, ColorToRGBHexString(colorA), ColorToRGBHexString(colorB), ColorToRGBHexString(colorC)}
 		}
 		close(out)
 	}()
-	return out
-
-	//remove temp file
-	// err = os.Remove(filename)
-	// HandleError(err, "")
-}
-
-func HandleError(err error, extendedMessage string) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v: %v\n", extendedMessage, err)
-		os.Exit(1)
-	}
+	return out, nil
+	//remove temp file err = os.Remove(filename)
 }
 
 func OpenTheList(urlListFile string) (*bufio.Scanner, io.Closer, error) {
@@ -101,6 +125,7 @@ func ColorToRGBHexString(color [rgbLen]byte) string {
 type imageInfo struct {
 	filename string
 	link     string
+	err      error
 }
 
 func RGBToIntSlice(color []byte) int {
@@ -117,18 +142,19 @@ func IntToRGB(rgb int) [3]byte {
 }
 
 func DownloadAllImages(linksFile string) <-chan imageInfo {
-	linksScanner, fileHandle, _ := OpenTheList(linksFile)
+	linksScanner, fileHandle, err := OpenTheList(linksFile)
 	chImgInfo := make(chan imageInfo, BUFFER_SIZE)
-	// HandleError(err, "couldn't open the links list")
-	// defer fileHandle.Close()
-	// HandleError(err, "failed creating CSV file")
+	if err != nil {
+		chImgInfo <- imageInfo{"", "", nil}
+		return chImgInfo
+	}
 
+	//defer fileHandle.Close()
 	go func() {
 		for linksScanner.Scan() {
 			url := linksScanner.Text()
 			filename, err := DownloadImage(url)
-			HandleError(err, "failed to download the file")
-			chImgInfo <- imageInfo{filename, url}
+			chImgInfo <- imageInfo{filename, url, fmt.Errorf("failed to download the file[%s]: %v", filename, err)}
 		}
 		close(chImgInfo)
 		fileHandle.Close()
