@@ -6,21 +6,23 @@ import (
 	"time"
 )
 
+const PROC_COUNT = 4
+
 func main() {
 
-	runtime.GOMAXPROCS(1) //SET MAX CPUs
-	
-	af := "./testData/test2.jpg"
+	runtime.GOMAXPROCS(PROC_COUNT) //SET MAX CPUs
+
+	// af := "./testData/test2.jpg"
 	// af = "./testData/bw2.jpg"
-	af = "c:/Users/winds/Pictures/Van_Gogh_-_Starry_Night-11000px.jpg"
+	// af = "c:/Users/winds/Pictures/Van_Gogh_-_Starry_Night-11000px.jpg"
 	// af = "c:/Users/winds/Pictures/the-starry-night-vincent-van-gogh.jpg"
 
 	// // GetImageFromJpeg(af)
-	image, Dx, Dy, _ := GetRGBAImage(af)
-	start := time.Now()
-	colorA, colorB, colorC, _ := DominantColors(image, Dx, Dy)
-	fmt.Println(time.Since(start))
-	fmt.Printf("%v %v %v", colorA, colorB, colorC)
+	// image, Dx, Dy, _ := GetRGBAImage(af)
+	// start := time.Now()
+	// colorA, colorB, colorC, _ := DominantColors(image, Dx, Dy)
+	// fmt.Println(time.Since(start))
+	// fmt.Printf("%v %v %v", colorA, colorB, colorC)
 
 	// f, err := os.Open(af)
 	// if err != nil {
@@ -57,15 +59,15 @@ func main() {
 	// testURLFilename := "./testData/listLocal.txt"
 
 	///NET TEST
-	// testURLFilename := "./testData/testUrlList.txt"
+	testURLFilename := "./testData/testUrlList.txt"
 
 	////REAL DATA - SUBSET
 	// testURLFilename := "./testData/inputSmall.txt"
 
 	////REAL DATA
 	// testURLFilename := "./testData/input.txt"
-	// start := time.Now()
-	// DominantColorsFromURLToCSV(testURLFilename, "colors.csv")
-	// elapsed := time.Since(start)
-	// fmt.Printf("Elapsed time: %s", elapsed)
+	start := time.Now()
+	DominantColorsFromURLToCSV(testURLFilename, "colors.csv")
+	elapsed := time.Since(start)
+	fmt.Printf("Elapsed time: %s", elapsed)
 }
