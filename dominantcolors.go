@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"image"
@@ -8,17 +10,67 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"math"
+	"net/http"
 	"os"
+	"path"
+	"strconv"
 	"sync"
+	"time"
 )
 
-const rgbLen = 3
+const BUFFER_SIZE = PROC_COUNT
 
-type imageInfo struct {
-	filename string
-	link     string
-	err      error
+func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
+	chImgInfo := DownloadAllImages(urlListFile)
+	st, chErr := DominantColorsFromRGBAImage(chImgInfo)
+	err := saveEverythingToCSV(st, chErr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
+}
+
+//TODO not sure which approach will work better with goroutines/ structures vs channel/slice merge
+func saveEverythingToCSV(st <-chan [4]string, errors <-chan error) error {
+	//create CSV file,
+	csvFilename := "huhu.csv"
+	outputCSV, err := os.Create(csvFilename)
+	if err != nil {
+		return fmt.Errorf("failed creating  CSV file: %v", err)
+	}
+	writerCSV := csv.NewWriter(outputCSV)
+	//TODO can this run concurrently too ?
+	// go func() {
+	// for line := range st {
+	for {
+
+		select {
+		case err := <-errors:
+			return fmt.Errorf("CSV writer failed: %v", err)
+		case line := <-st:
+			err = writerCSV.Write(line[:])
+			if err != nil {
+				return err
+			}
+			fmt.Println("-- adding to CSV[", line[0], "]")
+		}
+
+		//TODO FIX if this errs the channel stays undrained
+		// if err != nil {
+		// 	return err
+		// }
+	}
+
+	writerCSV.Flush()
+	err = outputCSV.Close()
+	if err != nil {
+		return err
+	}
+	// }()
+	return nil
 }
 
 func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) (<-chan [4]string, <-chan error) {
@@ -50,6 +102,89 @@ func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) (<-chan [4]string, 
 	return out, nil
 	//remove temp file err = os.Remove(filename)
 }
+
+func OpenTheList(urlListFile string) (*bufio.Scanner, io.Closer, error) {
+	file, err := os.Open(urlListFile)
+	if err != nil {
+		return nil, nil, err
+	}
+	scanner := bufio.NewScanner(file)
+	if err := scanner.Err(); err != nil {
+		return nil, nil, err
+	}
+	//we need to return file handle, since we need to close it afterwards
+	return scanner, file, nil
+}
+
+const rgbLen = 3
+
+func ColorToRGBHexString(color [rgbLen]byte) string {
+	return fmt.Sprintf("#%X%X%X", color[0], color[1], color[2])
+}
+
+type imageInfo struct {
+	filename string
+	link     string
+	err      error
+}
+
+func RGBToIntSlice(color []byte) int {
+	r, g, b := int(color[0]), int(color[1]), int(color[2])
+	rgb := ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
+	return rgb
+}
+
+func IntToRGB(rgb int) [3]byte {
+	r := (rgb >> 16) & 0xFF
+	g := (rgb >> 8) & 0xFF
+	b := rgb & 0xFF
+	return [3]byte{byte(r), byte(g), byte(b)}
+}
+
+func DownloadAllImages(linksFile string) <-chan imageInfo {
+	linksScanner, fileHandle, err := OpenTheList(linksFile)
+	chImgInfo := make(chan imageInfo, BUFFER_SIZE)
+	if err != nil {
+		chImgInfo <- imageInfo{"", "", nil}
+		return chImgInfo
+	}
+
+	//defer fileHandle.Close()
+	go func() {
+		for linksScanner.Scan() {
+			url := linksScanner.Text()
+			filename, err := DownloadImage(url)
+			chImgInfo <- imageInfo{filename, url, fmt.Errorf("failed to download the file[%s]: %v", filename, err)}
+		}
+		close(chImgInfo)
+		fileHandle.Close()
+	}()
+	return chImgInfo
+}
+func DownloadImage(url string) (string, error) {
+	fmt.Println("-- downloading " + url)
+	response, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+
+	timePrefix := strconv.FormatInt(int64(time.Now().UnixNano()), 10)
+	filename := timePrefix + "_" + path.Base(url)
+	file, err := os.Create(filename)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, response.Body)
+	if err != nil {
+		return "", err
+	}
+	fmt.Println("-- downloading FINISHED")
+	return filename, nil
+}
+
 func GetRGBAImage(imagefilename string) (img *image.RGBA, Dx int, Dy int, err error) {
 	var rgbImage *image.RGBA
 	testImage, err := os.Open(imagefilename)
