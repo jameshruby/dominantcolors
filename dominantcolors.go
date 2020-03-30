@@ -25,8 +25,7 @@ const BUFFER_SIZE = PROC_COUNT
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 	chImgInfo := DownloadAllImages(urlListFile)
 	st := DominantColorsFromRGBAImage(chImgInfo)
-
-	err := saveEverythingToCSV(st)
+	err := saveEverythingToCSV(st, csvFilename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		fmt.Printf("%v\n", err)
@@ -103,17 +102,13 @@ func DominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) <-chan processedIma
 	return out
 }
 
-//TODO not sure which approach will work better with goroutines/ structures vs channel/slice merge
-func saveEverythingToCSV(st <-chan processedImage) error {
+func saveEverythingToCSV(st <-chan processedImage, csvFilename string) error {
 	//create CSV file,
-	csvFilename := "huhu.csv"
 	outputCSV, err := os.Create(csvFilename)
 	if err != nil {
 		return fmt.Errorf("failed creating  CSV file: %v", err)
 	}
 	writerCSV := csv.NewWriter(outputCSV)
-	//TODO can this run concurrently too ?
-	// go func() {
 	for pi := range st {
 		if pi.err != nil {
 			return pi.err
@@ -130,7 +125,6 @@ func saveEverythingToCSV(st <-chan processedImage) error {
 	if err != nil {
 		return err
 	}
-	// }()
 	return nil
 }
 
