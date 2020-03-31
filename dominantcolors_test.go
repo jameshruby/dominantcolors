@@ -373,3 +373,11 @@ func BenchmarkImageDownload(b *testing.B) {
 // 	f := DownloadAllImages("./testData/input.txt")
 // 	t.Logf("%v", f)
 // }
+
+func BenchmarkIntegration(b *testing.B) {
+	runtime.GOMAXPROCS(PROC_COUNT) //SET MAX CPUs
+	for n := 0; n < b.N; n++ {
+		testURLFilename := "./testData/testUrlList.txt"
+		DominantColorsFromURLToCSV(testURLFilename, csvFilename)
+	}
+}
