@@ -21,6 +21,7 @@ import (
 )
 
 const BUFFER_SIZE = PROC_COUNT
+const RGB_LEN = 3
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 	chImgInfo := DownloadAllImages(urlListFile)
@@ -141,9 +142,7 @@ func OpenTheList(urlListFile string) (*bufio.Scanner, io.Closer, error) {
 	return scanner, file, nil
 }
 
-const rgbLen = 3
-
-func ColorToRGBHexString(color [rgbLen]byte) string {
+func ColorToRGBHexString(color [RGB_LEN]byte) string {
 	return fmt.Sprintf("#%X%X%X", color[0], color[1], color[2])
 }
 
@@ -209,9 +208,9 @@ func GetRGBAImage(imagefilename string) (img *image.RGBA, Dx int, Dy int, err er
 	return rgbImage, imageBounds.Dx(), imageBounds.Dy(), nil
 }
 
-func DominantColors(image *image.RGBA, width int, height int) ([rgbLen]byte, [rgbLen]byte, [rgbLen]byte, error) {
+func DominantColors(image *image.RGBA, width int, height int) ([RGB_LEN]byte, [RGB_LEN]byte, [RGB_LEN]byte, error) {
 	if width == 0 || height == 0 {
-		var ccA, ccB, ccC [rgbLen]byte
+		var ccA, ccB, ccC [RGB_LEN]byte
 		return ccA, ccB, ccC, errors.New("image size was 0")
 	}
 	//build a map of unique colors and its sum, pix is array with colors just stacked behind each other
