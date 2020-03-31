@@ -24,9 +24,16 @@ const BUFFER_SIZE = PROC_COUNT
 const RGB_LEN = 3
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
-	chImgInfo := DownloadAllImages(urlListFile)
+	fileHandle, err := os.Open(urlListFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
+	defer fileHandle.Close()
+	chImgInfo := DownloadAllImages(fileHandle)
 	st := DominantColorsFromRGBAImage(chImgInfo)
-	err := saveEverythingToCSV(st, csvFilename)
+	err = saveEverythingToCSV(st, csvFilename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		fmt.Printf("%v\n", err)
@@ -45,25 +52,15 @@ type processedImage struct {
 	err     error
 }
 
-func DownloadAllImages(linksFile string) <-chan imageInfo {
+func DownloadAllImages(fileHandle *os.File) <-chan imageInfo {
 	chImgInfo := make(chan imageInfo, BUFFER_SIZE)
-	fileHandle, err := os.Open(linksFile)
-	if err != nil {
-		chImgInfo <- imageInfo{"", "", err}
-		return chImgInfo
-	}
+	imageInfov := imageInfo{"", "", nil}
 	linksScanner := bufio.NewScanner(fileHandle)
 	if err := linksScanner.Err(); err != nil {
-		chImgInfo <- imageInfo{"", "", err}
+		imageInfov.err = err
+		chImgInfo <- imageInfov
 		return chImgInfo
 	}
-
-	if err != nil {
-		chImgInfo <- imageInfo{"", "", err}
-		return chImgInfo
-	}
-
-	//defer fileHandle.Close()
 	go func() {
 		for linksScanner.Scan() {
 			url := linksScanner.Text()
@@ -71,7 +68,8 @@ func DownloadAllImages(linksFile string) <-chan imageInfo {
 			if err != nil {
 				err = fmt.Errorf("failed to download the image: %v", err)
 			}
-			chImgInfo <- imageInfo{filename, url, err}
+			imageInfov.filename = filename
+			imageInfov.link = url
 		}
 		close(chImgInfo)
 		fileHandle.Close()

@@ -338,14 +338,6 @@ func BenchmarkDominantColors(b *testing.B) {
 	}
 }
 
-func BenchmarkImageDownload(b *testing.B) {
-	filenames := DownloadAllImages("./testData/input.txt")
-	b.StopTimer()
-	for f := range filenames {
-		os.Remove(f.filename)
-	}
-}
-
 func BenchmarkIntegration(b *testing.B) {
 	runtime.GOMAXPROCS(PROC_COUNT) //SET MAX CPUs
 	for n := 0; n < b.N; n++ {
