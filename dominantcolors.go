@@ -46,10 +46,20 @@ type processedImage struct {
 }
 
 func DownloadAllImages(linksFile string) <-chan imageInfo {
-	linksScanner, fileHandle, err := OpenTheList(linksFile)
 	chImgInfo := make(chan imageInfo, BUFFER_SIZE)
+	fileHandle, err := os.Open(linksFile)
 	if err != nil {
-		chImgInfo <- imageInfo{"", "", nil}
+		chImgInfo <- imageInfo{"", "", err}
+		return chImgInfo
+	}
+	linksScanner := bufio.NewScanner(fileHandle)
+	if err := linksScanner.Err(); err != nil {
+		chImgInfo <- imageInfo{"", "", err}
+		return chImgInfo
+	}
+
+	if err != nil {
+		chImgInfo <- imageInfo{"", "", err}
 		return chImgInfo
 	}
 
@@ -127,19 +137,6 @@ func saveEverythingToCSV(st <-chan processedImage, csvFilename string) error {
 		return err
 	}
 	return nil
-}
-
-func OpenTheList(urlListFile string) (*bufio.Scanner, io.Closer, error) {
-	file, err := os.Open(urlListFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	scanner := bufio.NewScanner(file)
-	if err := scanner.Err(); err != nil {
-		return nil, nil, err
-	}
-	//we need to return file handle, since we need to close it afterwards
-	return scanner, file, nil
 }
 
 func ColorToRGBHexString(color [RGB_LEN]byte) string {
