@@ -14,7 +14,6 @@ import (
 	"os"
 	"runtime"
 	"testing"
-	"time"
 )
 
 //Using testing colors that shouldn't be broken by conversion
@@ -89,7 +88,7 @@ func TestColorToHex(t *testing.T) {
 
 var csvFilename string = "output.csv"
 
-func TestTestImageEndToEnd(t *testing.T) {
+func TestImageIntegration(t *testing.T) {
 	testURLFilename := "./testData/testUrlList.txt"
 	DominantColorsFromURLToCSV(testURLFilename, csvFilename)
 
@@ -339,28 +338,6 @@ func BenchmarkDominantColors(b *testing.B) {
 	}
 }
 
-// func TestThrowAway()
-
-func BenchmarkThrowaway(b *testing.B) {
-	runtime.GOMAXPROCS(4) //SET MAX CPUs
-	size := 3000
-	testImage, err := generateTestImage(size, size, WorstCase)
-	if err != nil {
-		b.Fatalf("%s", err)
-	}
-	b.Log("-- dominant colors\n")
-	b.ResetTimer()
-	b.ReportAllocs()
-	start := time.Now()
-	DominantColors(testImage, size, size)
-	fmt.Println(time.Since(start))
-
-	// // run the Fib function b.N times
-	// for n := 0; n < b.N; n++ {
-	//         Fib(10)
-	// }
-}
-
 func BenchmarkImageDownload(b *testing.B) {
 	filenames := DownloadAllImages("./testData/input.txt")
 	b.StopTimer()
@@ -368,11 +345,6 @@ func BenchmarkImageDownload(b *testing.B) {
 		os.Remove(f.filename)
 	}
 }
-
-// func TestImageDownload(t *testing.T) {
-// 	f := DownloadAllImages("./testData/input.txt")
-// 	t.Logf("%v", f)
-// }
 
 func BenchmarkIntegration(b *testing.B) {
 	runtime.GOMAXPROCS(PROC_COUNT) //SET MAX CPUs
