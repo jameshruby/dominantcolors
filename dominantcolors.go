@@ -24,13 +24,14 @@ const BUFFER_SIZE = PROC_COUNT
 const RGB_LEN = 3
 
 func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
-	linksScanner, fileHandle, err := OpenTheList(urlListFile)
+	fileHandle, err := os.Open(urlListFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
-	chImgInfo := DownloadAllImages(linksScanner)
+	defer fileHandle.Close()
+	chImgInfo := DownloadAllImages(fileHandle)
 	st := DominantColorsFromRGBAImage(chImgInfo)
 	err = saveEverythingToCSV(st, csvFilename)
 	if err != nil {
@@ -38,7 +39,6 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
-	fileHandle.Close()
 }
 
 type imageInfo struct {
@@ -52,8 +52,15 @@ type processedImage struct {
 	err     error
 }
 
-func DownloadAllImages(linksScanner *bufio.Scanner) <-chan imageInfo {
+func DownloadAllImages(fileHandle *os.File) <-chan imageInfo {
 	chImgInfo := make(chan imageInfo, BUFFER_SIZE)
+	imageInfov := imageInfo{"", "", nil}
+	linksScanner := bufio.NewScanner(fileHandle)
+	if err := linksScanner.Err(); err != nil {
+		imageInfov.err = err
+		chImgInfo <- imageInfov
+		return chImgInfo
+	}
 	go func() {
 		for linksScanner.Scan() {
 			url := linksScanner.Text()
@@ -61,9 +68,11 @@ func DownloadAllImages(linksScanner *bufio.Scanner) <-chan imageInfo {
 			if err != nil {
 				err = fmt.Errorf("failed to download the image: %v", err)
 			}
-			chImgInfo <- imageInfo{filename, url, err}
+			imageInfov.filename = filename
+			imageInfov.link = url
 		}
 		close(chImgInfo)
+		fileHandle.Close()
 	}()
 	return chImgInfo
 }
@@ -126,19 +135,6 @@ func saveEverythingToCSV(st <-chan processedImage, csvFilename string) error {
 		return err
 	}
 	return nil
-}
-
-func OpenTheList(urlListFile string) (*bufio.Scanner, *os.File, error) {
-	file, err := os.Open(urlListFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	scanner := bufio.NewScanner(file)
-	if err := scanner.Err(); err != nil {
-		return nil, nil, err
-	}
-	//we need to return file handle, since we need to close it afterwards
-	return scanner, file, nil
 }
 
 func ColorToRGBHexString(color [RGB_LEN]byte) string {
