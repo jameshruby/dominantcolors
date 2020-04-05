@@ -17,7 +17,7 @@ const RGB_LENGTH = 3
 
 var BUFFER_SIZE = runtime.NumCPU()
 
-func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
+func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) error {
 	openTheList := func(urlListFile string) (*bufio.Scanner, *os.File, error) {
 		file, err := os.Open(urlListFile)
 		if err != nil {
@@ -33,20 +33,20 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) {
 
 	linksScanner, fileHandle, err := openTheList(urlListFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		return err
 	}
 	chImgInfo := downloadAllImages(linksScanner)
 	st, filenames := dominantColorsFromRGBAImage(chImgInfo)
 	deleteImages(filenames)
 	err = saveEverythingToCSV(st, csvFilename)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		return err
 	}
-	fileHandle.Close()
+	err = fileHandle.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type imageInfo struct {
@@ -181,14 +181,29 @@ func saveEverythingToCSV(st <-chan processedImage, csvFilename string) error {
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU()) //*MAKING SURE WE SET MAX CPUs
 
-	// testURLFilename := "./testData/input.txt"
-	testURLFilename := "./testData/inputSmall.txt"
+	var csvFilename = os.Args[1]
+	var urlFilename = os.Args[2]
+	if urlFilename == "" {
+		// urlFilename := "./testData/input.txt"
+		urlFilename = "./testData/inputSmall.txt"
+	}
+	if csvFilename == "" {
+		csvFilename = "output.csv"
+	}
+
+	fmt.Println("params ", csvFilename, urlFilename)
 
 	start := time.Now()
-	DominantColorsFromURLToCSV(testURLFilename, "colors.csv")
+	err := DominantColorsFromURLToCSV(urlFilename, csvFilename)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
+
 	elapsed := time.Since(start)
 
-	fi, err := os.Stat("colors.csv")
+	fi, err := os.Stat(csvFilename)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
@@ -200,5 +215,4 @@ func main() {
 	}
 
 	fmt.Printf("Elapsed time: %s", elapsed)
-
 }

@@ -79,11 +79,14 @@ var csvFilename string = "output.csv"
 
 func TestTestImageEndToEnd(t *testing.T) {
 	testURLFilename := "./testData/testUrlList.txt"
-	DominantColorsFromURLToCSV(testURLFilename, csvFilename)
+	err := DominantColorsFromURLToCSV(testURLFilename, csvFilename)
+	if err != nil {
+		log.Fatalln("Couldn't open the csv file", err)
+	}
 
 	csvFile, err := os.Open(csvFilename)
 	if err != nil {
-		log.Fatalln("Couldn't open the csv file", err)
+		log.Fatalln(err)
 	}
 
 	reader := csv.NewReader(csvFile)
