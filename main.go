@@ -49,6 +49,7 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) error {
 	return nil
 }
 
+//? We could probably use only one structure, but since we drain the first channel anyway, we would still have 2channels
 type imageInfo struct {
 	filename string
 	link     string
@@ -105,7 +106,7 @@ func dominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) (<-chan processedIm
 	out := make(chan processedImage, BUFFER_SIZE)
 	outnames := make(chan string, BUFFER_SIZE)
 	go func() {
-		for imgInfo := range chImgInfo { //TODO better goroutines handling
+		for imgInfo := range chImgInfo {
 			o := processedImage{}
 			if imgInfo.err != nil {
 				o.err = imgInfo.err
@@ -138,22 +139,13 @@ func dominantColorsFromRGBAImage(chImgInfo <-chan imageInfo) (<-chan processedIm
 	return out, outnames
 }
 func deleteImages(filenames <-chan string) {
-	// out := make(chan error, BUFFER_SIZE)
 	go func() {
 		for filename := range filenames {
-			os.Remove(filename)
-			// err := os.Remove(filename)
-			// if err != nil {
-			// 	// out <- err
-			// 	// return
-			// }
+			os.Remove(filename) //ignore errs
 		}
-		// close(out)
 	}()
-	// return out // <-chan error
 }
 func saveEverythingToCSV(st <-chan processedImage, csvFilename string) error {
-	//create CSV file,
 	outputCSV, err := os.Create(csvFilename)
 	if err != nil {
 		return fmt.Errorf("failed creating  CSV file: %v", err)
@@ -184,14 +176,12 @@ func main() {
 	var csvFilename = os.Args[1]
 	var urlFilename = os.Args[2]
 	if urlFilename == "" {
-		// urlFilename := "./testData/input.txt"
-		urlFilename = "./testData/inputSmall.txt"
+		//urlFilename = "./testData/inputSmall.txt"
+		urlFilename = "./testData/input.txt"
 	}
 	if csvFilename == "" {
 		csvFilename = "output.csv"
 	}
-
-	fmt.Println("params ", csvFilename, urlFilename)
 
 	start := time.Now()
 	err := DominantColorsFromURLToCSV(urlFilename, csvFilename)
@@ -200,19 +190,12 @@ func main() {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
-
 	elapsed := time.Since(start)
 
-	fi, err := os.Stat(csvFilename)
-	if err != nil {
-		fmt.Printf("%v\n", err)
+	csvStat, err := os.Stat(csvFilename)
+	if err != nil || csvStat.Size() < 1 {
+		fmt.Fprintf(os.Stderr, "OUTPUT SIZE CHECK FAILED! %v", err)
 		os.Exit(1)
 	}
-	// get the size
-	if fi.Size() < 1 {
-		fmt.Fprintf(os.Stderr, "FILE SIZZE CHECK FAILED! ")
-		os.Exit(1)
-	}
-
 	fmt.Printf("Elapsed time: %s", elapsed)
 }
