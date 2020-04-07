@@ -30,7 +30,6 @@ func DominantColorsFromURLToCSV(urlListFile string, csvFilename string) error {
 		//we need to return file handle, since we need to close it afterwards
 		return scanner, file, nil
 	}
-
 	linksScanner, fileHandle, err := openTheList(urlListFile)
 	if err != nil {
 		return err
@@ -145,6 +144,8 @@ func deleteImages(filenames <-chan string) {
 		}
 	}()
 }
+
+//?This is fanIn function which may be bit confusing
 func saveEverythingToCSV(st <-chan processedImage, csvFilename string) error {
 	outputCSV, err := os.Create(csvFilename)
 	if err != nil {
@@ -152,10 +153,13 @@ func saveEverythingToCSV(st <-chan processedImage, csvFilename string) error {
 	}
 	writerCSV := csv.NewWriter(outputCSV)
 	for pi := range st {
+		//!From that func perspective, its error, but we won't to handle it gracefully here
 		if pi.err != nil {
-			return pi.err
+			err = writerCSV.Write([]string{pi.err.Error()})
+			fmt.Println("-- adding to CSV[", pi.csvInfo[0], "]")
+		} else {
+			err = writerCSV.Write(pi.csvInfo[:])
 		}
-		err = writerCSV.Write(pi.csvInfo[:])
 		if err != nil {
 			return fmt.Errorf("CSV writer failed: %v", err)
 		}
@@ -173,14 +177,15 @@ func saveEverythingToCSV(st <-chan processedImage, csvFilename string) error {
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU()) //*MAKING SURE WE SET MAX CPUs
 
-	var csvFilename = os.Args[1]
-	var urlFilename = os.Args[2]
-	if urlFilename == "" {
-		//urlFilename = "./testData/inputSmall.txt"
-		urlFilename = "./testData/input.txt"
+	//urlFilename = "./testData/inputSmall.txt"s
+	urlFilename := "./testData/input.txt"
+	csvFilename := "dominantColors.csv"
+
+	if len(os.Args) > 1 {
+		urlFilename = os.Args[1]
 	}
-	if csvFilename == "" {
-		csvFilename = "output.csv"
+	if len(os.Args) > 2 {
+		csvFilename = os.Args[2]
 	}
 
 	start := time.Now()
