@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"math"
+	"sort"
 )
 
 // Sum, or reduction, which computes the sum of the points in each cluster
@@ -9,6 +11,77 @@ import (
 // Reassign, or map, the points to the cluster to the closest centroid
 
 const RGBI = 3
+
+//this version should be better suited for paralelizing
+func KmeansPartition1(imgPix []uint8) [][3]float64 {
+	var numClusters = 16
+	clusters := make([][3]float64, numClusters)
+	clustersMemebership := make([][][3]float64, numClusters)
+	clusterSizes := make([]int, numClusters)
+	//random values
+	// for i := 0; i < numClusters; i++ {
+	// 	var startingPoint [3]uint8
+	// 	for i := 0; i < RGBI; i++ {
+	// 		startingPoint[i] = uint8(rand.Int())
+	// 	}
+	// 	clusters[i] = startingPoint
+	// }
+
+	//first n values
+	for i := 0; i < numClusters; i++ {
+		fixedIndex := i * 4
+		p := imgPix[fixedIndex : fixedIndex+RGBI : fixedIndex+RGBI]
+		point := [3]float64{float64(p[0]), float64(p[1]), float64(p[2])}
+		clusters[i] = point
+	}
+
+	//!thats why in parallel we should ideally pass along whole part of array so we can do all these functions in similr way to linq
+	for i := 0; i < len(imgPix); i += 4 {
+		// go func(i int) {
+		p := imgPix[i : i+RGBI : i+RGBI]
+		point := [3]float64{float64(p[0]), float64(p[1]), float64(p[2])}
+		index := nearestCluster(numClusters, point, clusters)
+		//!now this is function that can run in separate thread we can end up with new centrods out of the threads
+		clustersMemebership[index] = append(clustersMemebership[index], point)
+
+		//now we want to actually do averaging in the thread but it needs to be out of the loop
+		// }(i)
+	}
+
+	//MAIN
+	//average the sum and replace old cluster with new ones
+
+	for i := 0; i < numClusters; i++ {
+		var cumulativeCluster [3]float64
+		size := len(clustersMemebership[i])
+		for _, point := range clustersMemebership[i] {
+			for j := 0; j < 3; j++ {
+				cumulativeCluster[j] += point[j]
+			}
+		}
+		for j := 0; j < 3; j++ {
+			cumulativeCluster[j] /= float64(size)
+		}
+		clusters[i] = cumulativeCluster
+		clusterSizes[i] = size
+	}
+
+	for i := 0; i < len(clusters); i++ {
+		fmt.Println("", clusters[i])
+	}
+
+	clustersInfo := TwoSlices{clusters, clusterSizes}
+	// fmt.Println("", clusters)
+	// fmt.Println("_____", clusterSizes)
+	sort.Sort(TwoSlices(clustersInfo))
+	// fmt.Println("Sorted : ", clustersInfo.clusters, clustersInfo.clusterSizes)
+
+	// w.Flush()
+	// file.Close()
+
+	// return clusters
+	return clustersInfo.clusters
+}
 
 func KmeansPartition(imgPix []uint8) [][3]float64 {
 	var numClusters = 16
@@ -95,7 +168,7 @@ func KmeansPartition(imgPix []uint8) [][3]float64 {
 	clustersInfo := TwoSlices{clusters, clusterSizes}
 	// fmt.Println("", clusters)
 	// fmt.Println("_____", clusterSizes)
-	// sort.Sort(TwoSlices(clustersInfo))
+	sort.Sort(TwoSlices(clustersInfo))
 	// fmt.Println("Sorted : ", clustersInfo.clusters, clustersInfo.clusterSizes)
 
 	// w.Flush()

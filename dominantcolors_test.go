@@ -75,25 +75,18 @@ func TestJpegColorOutput(t *testing.T) {
 	}
 }
 
-func TestColorToHex(t *testing.T) {
-	expected := "#CBCC66"
-	yellow := dominantColors["yellow"]
-	c := [3]byte{yellow.R, yellow.G, yellow.B}
-	actual := ColorToRGBHexString(c)
-	if actual != expected {
-		t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", actual, expected)
-	}
-}
-
 var csvFilename string = "output.csv"
 
 func TestTestImageEndToEnd(t *testing.T) {
 	testURLFilename := "./testData/testUrlList.txt"
-	DominantColorsFromURLToCSV(testURLFilename, csvFilename)
+	err := DominantColorsFromURLToCSV(testURLFilename, csvFilename)
+	if err != nil {
+		log.Fatalln("Couldn't open the csv file", err)
+	}
 
 	csvFile, err := os.Open(csvFilename)
 	if err != nil {
-		log.Fatalln("Couldn't open the csv file", err)
+		log.Fatalln(err)
 	}
 
 	reader := csv.NewReader(csvFile)
@@ -235,35 +228,37 @@ func generateTestImage(width int, height int, mode ImageGeneratorMode) (*image.R
 // 	imgHeight := 12
 // 	testImage, _ := generateTestImage(imgWidth, imgHeight, SimpleTest)
 // 	colorA, colorB, colorC, _ := DominantColors(testImage, imgWidth, imgHeight)
-// 	colors := []color.Color{colorA, colorB, colorC}
-// 	expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
+// 	t.Logf("\n %v, %v, %v \n %v %v %v \n\n", colorA, colorB, colorC, dominantColors["yellow"], dominantColors["blue"], dominantColors["red"])
+// 	t.Fatalf("SHOW")
+// 	// colors := []color.Color{colorA, colorB, colorC}
+// 	// expectedColors := []color.Color{dominantColors["yellow"], dominantColors["blue"], dominantColors["red"]}
 
-// 	for i := 0; i < len(dominantColors); i++ {
-// 		if colors[i] != expectedColors[i] {
-// 			t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
-// 		}
-// 	}
+// 	// for i := 0; i < len(dominantColors); i++ {
+// 	// 	if colors[i] != expectedColors[i] {
+// 	// 		t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
+// 	// 	}
+// 	// }
 // }
 
-func TestNullPicture(t *testing.T) {
-	imgWidth := 0
-	imgHeight := 0
-	testImage := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
+// func TestNullPicture(t *testing.T) {
+// 	imgWidth := 0
+// 	imgHeight := 0
+// 	testImage := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 
-	colorA, colorB, colorC, err := DominantColors(testImage, imgWidth, imgHeight)
-	if err == nil {
-		t.Errorf("Dominant colors aren't returning error")
-	}
-	t.Logf("%v %v %v", colorA, colorB, colorC)
-	//colors := [][3]byte{colorA, colorB, colorC}
-	// expectedColors := [][3]byte{nil, nil, nil}
+// 	colorA, colorB, colorC, err := DominantColors(testImage, imgWidth, imgHeight)
+// 	if err == nil {
+// 		t.Errorf("Dominant colors aren't returning error")
+// 	}
+// 	t.Logf("%v %v %v", colorA, colorB, colorC)
+// 	//colors := [][3]byte{colorA, colorB, colorC}
+// 	// expectedColors := [][3]byte{nil, nil, nil}
 
-	// for i := 0; i < len(expectedColors); i++ {
-	// 	if colors[i] != expectedColors[i] {
-	// 		t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
-	// 	}
-	// }
-}
+// 	// for i := 0; i < len(expectedColors); i++ {
+// 	// 	if colors[i] != expectedColors[i] {
+// 	// 		t.Errorf("Dominant colors are wrong, actual: %v, expected: %v.", colors[i], expectedColors[i])
+// 	// 	}
+// 	// }
+// }
 
 func TestSolidPictureShouldReturnSameColor(t *testing.T) {
 	imgWidth := 12
@@ -334,16 +329,3 @@ func BenchmarkDominantColors(b *testing.B) {
 		}
 	}
 }
-
-func BenchmarkImageDownload(b *testing.B) {
-	filenames := DownloadAllImages("./testData/input.txt")
-	b.StopTimer()
-	for f := range filenames {
-		os.Remove(f.filename)
-	}
-}
-
-// func TestImageDownload(t *testing.T) {
-// 	f := DownloadAllImages("./testData/input.txt")
-// 	t.Logf("%v", f)
-// }
